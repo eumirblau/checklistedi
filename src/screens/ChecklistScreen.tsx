@@ -13,13 +13,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import PhotoButton from '../../components/ui/PhotoButton';
+import PhotoButton from '../../components/ui/PhotoButton'; // Importación corregida
 import ApiService from '../../services/ApiService';
 import { PhotoMetadata } from '../../services/CloudPhotoService';
 import { FirebasePhotoService } from '../../services/FirebasePhotoService';
 import { ChecklistItem } from '../../types';
-// Importación del módulo nativo de cámara
-// Eliminado soporte a NativeModules/SimpleCameraModule. Usa solo lógica JS/Expo.
 
 // Componente Text seguro que previene el error "Text strings must be rendered within a <Text> component"
 const Text = ({ children, style, ...props }: any) => {
@@ -231,31 +229,30 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
           <View style={styles.itemInfo}>
             {item.unidad ? <Text style={styles.itemTitle}>{String(item.unidad)}</Text> : null}
             {item.descripcion ? <Text style={styles.itemDescription}>{String(item.descripcion)}</Text> : null}
-            
-            <View style={styles.itemActions}>
+            {/* Pantalla/box de observaciones debajo de la descripción, siempre visible */}
+            <View style={styles.observationsBox}>
+              <Text style={styles.observationsBoxTitle}>Observaciones:</Text>
+              <Text style={styles.observationsBoxText}>{item.observaciones ? String(item.observaciones) : 'Sin observaciones aún.'}</Text>
               <TouchableOpacity
-                style={styles.observationsButton}
+                style={styles.observationsButtonBlue}
                 onPress={() => openObservationsModal(item)}
               >
-                <Text style={styles.observationsButtonText}>
-                  📝 {item.observaciones ? 'Ver observaciones' : 'Agregar observaciones'}
-                </Text>
+                <Text style={styles.observationsButtonTextBlue}>Agregar observación</Text>
               </TouchableOpacity>
-              
-              <PhotoButton 
-                itemId={item.id}
-                photos={itemPhotos[item.id] || []}
-                onPhotoTaken={(photoUri) => handlePhotoTaken(item.id, photoUri)}
-                onViewPhotos={() => handleViewPhotos(item.id)}
-                maxPhotos={3}
-              />
-              
-              {item.fechaCompletado ? (
-                <Text style={styles.completedDate}>
-                  ✅ {`Completado: ${new Date(item.fechaCompletado).toLocaleString()}`}
-                </Text>
-              ) : null}
             </View>
+            {/* Botón para tomar foto integrado con PhotoButton, debajo del box de observaciones */}
+            <PhotoButton 
+              itemId={item.id}
+              photos={itemPhotos[item.id] || []}
+              onPhotoTaken={(photoUri) => handlePhotoTaken(item.id, photoUri)}
+              onViewPhotos={() => handleViewPhotos(item.id)}
+              maxPhotos={3}
+            />
+            {item.fechaCompletado ? (
+              <Text style={styles.completedDate}>
+                ✅ {`Completado: ${new Date(item.fechaCompletado).toLocaleString()}`}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.switchContainer}>
@@ -536,22 +533,44 @@ const styles = StyleSheet.create({  container: {
     marginBottom: 12,
     lineHeight: 20,
   },
-  itemActions: {
+  itemActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
     marginTop: 8,
   },
-  observationsButton: {
-    backgroundColor: '#f7fafc',
-    padding: 10,
+  photoButtonRed: {
+    backgroundColor: '#e74c3c',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 12,
-    marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#e74c3c',
+    minWidth: 120,
+    alignItems: 'center',
   },
-  observationsButtonText: {
+  photoButtonTextRed: {
     fontSize: 14,
-    color: '#4a6cf7',
+    color: '#fff',
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
+  },
+  observationsButtonBlue: {
+    backgroundColor: '#4a6cf7',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#4a6cf7',
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  observationsButtonTextBlue: {
+    fontSize: 14,
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '600',
   },
   completedDate: {
     fontSize: 12,
@@ -562,7 +581,8 @@ const styles = StyleSheet.create({  container: {
   switchContainer: {
     marginLeft: 10,
     justifyContent: 'center',
-  },  saveButton: {
+  },
+  saveButton: {
     position: 'absolute',
     bottom: 20,
     left: 20,
@@ -710,6 +730,27 @@ const styles = StyleSheet.create({  container: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#4a6cf7',
+    marginBottom: 12,
+  },
+  // Estilos para el box de observaciones
+  observationsBox: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    padding: 16,
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  observationsBoxTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4a6cf7',
+    marginBottom: 8,
+  },
+  observationsBoxText: {
+    fontSize: 14,
+    color: '#4a5568',
     marginBottom: 12,
   },
 });

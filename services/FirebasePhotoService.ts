@@ -1,4 +1,4 @@
-import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from 'firebase/storage';
+import { deleteObject, getDownloadURL, listAll, ref, uploadString } from 'firebase/storage';
 import { storage } from '../config/firebase';
 // Eliminado: import GetRealPath from 'react-native-get-real-path';
 
@@ -53,37 +53,50 @@ export class FirebasePhotoService {
 
       // Leer el archivo local como base64 y convertirlo a un buffer
 
-      let fileData;
-      let mimeType = 'image/jpeg';
       let filePath = uri;
-      // En Expo, los URIs de la cámara/galería ya son file:// o http(s)://
-
-      // Método alternativo compatible con Expo: leer como base64 y subir como Uint8Array
-      let fileBytes: Uint8Array;
-      if (filePath.startsWith('file://')) {
-        // Leer archivo local con expo-file-system
-        const base64 = await import('expo-file-system').then(fs => fs.readAsStringAsync(filePath, { encoding: fs.EncodingType.Base64 }));
-        fileBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-      } else {
-        // Si es una URL remota, usar fetch y arrayBuffer
-        const response = await fetch(filePath);
-        const arrayBuffer = await response.arrayBuffer();
-        fileBytes = new Uint8Array(arrayBuffer);
+      let mimeType = 'image/jpeg';
+      let fileBytes: string;
+      try {
+        if (filePath.startsWith('file://')) {
+          const fs = await import('expo-file-system');
+          fileBytes = await fs.readAsStringAsync(filePath, { encoding: fs.EncodingType.Base64 });
+        } else {
+          // Si es remota, descarga y convierte a base64
+          const response = await fetch(filePath);
+          const blob = await response.blob();
+          fileBytes = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch (readError) {
+        console.error('❌ [FIREBASE] Error leyendo archivo para subir:', readError);
+        return {
+          success: false,
+          error: 'Error leyendo archivo para subir: ' + (readError instanceof Error ? readError.message : 'desconocido')
+        };
       }
-      await uploadBytes(storageRef, fileBytes, { contentType: mimeType });
-
-      // Obtener URL de descarga
-      const downloadURL = await getDownloadURL(storageRef);
-
-      console.log('✅ [FIREBASE] Foto subida exitosamente');
-      console.log('🔗 Download URL:', downloadURL);
-
-      return {
-        success: true,
-        downloadURL,
-        fileName: finalFileName,
-        uploadPath
-      };
+      try {
+        await uploadString(storageRef, fileBytes, 'base64', { contentType: mimeType });
+        // Obtener URL de descarga
+        const downloadURL = await getDownloadURL(storageRef);
+        console.log('✅ [FIREBASE] Foto subida exitosamente');
+        console.log('🔗 Download URL:', downloadURL);
+        return {
+          success: true,
+          downloadURL,
+          fileName: finalFileName,
+          uploadPath
+        };
+      } catch (uploadError) {
+        console.error('❌ [FIREBASE] Error subiendo foto a Firebase:', uploadError);
+        return {
+          success: false,
+          error: 'Error subiendo foto a Firebase: ' + (uploadError instanceof Error ? uploadError.message : 'desconocido')
+        };
+      }
 
     } catch (error) {
       console.error('❌ [FIREBASE] Error subiendo foto:', error);
