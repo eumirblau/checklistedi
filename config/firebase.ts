@@ -2,13 +2,12 @@
 // Generado automáticamente desde google-services.json
 // Fecha: 2025-07-06T18:59:36.374Z
 export const firebaseConfig = {
-  apiKey: "AIzaSyDufCoO06U4YaPeX-8zFRBUFxwlGCs_06I",
-  authDomain: "checklistedhinor.firebaseapp.com",
-  projectId: "checklistedhinor",
-  storageBucket: "checklistedhinor.firebasestorage.app",
-  messagingSenderId: "972633539581",
-  appId: "1:972633539581:android:1971e7f9cd4930c807cf94",
-};
+apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
 
 // Alias para compatibilidad
 export const FIREBASE_CONFIG = firebaseConfig;
