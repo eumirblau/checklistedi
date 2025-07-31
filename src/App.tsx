@@ -1,6 +1,6 @@
 import React from 'react';
-import LoginScreen from './screens/LoginScreen';
+import AppNavigator from '../navigation/AppNavigator';
 
 export default function App() {
-  return <LoginScreen navigation={{ navigate: () => {} }} />;
+  return <AppNavigator />;
 }

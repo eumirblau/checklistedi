@@ -21,6 +21,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-native": "0.80.2",
+    "react-native-safe-area-context": "^5.5.2",
+    "react-native-screens": "^4.13.1",
     "react-native-web": "^0.20.0"
   },
   "devDependencies": {

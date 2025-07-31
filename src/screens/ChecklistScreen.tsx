@@ -2,22 +2,31 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
-  RefreshControl,
   Text as RNText,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Switch,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+// ...ya importados arriba, eliminar duplicado
 import PhotoButton from '../../components/ui/PhotoButton'; // Importación corregida
 import ApiService from '../../services/ApiService';
-import { PhotoMetadata } from '../../services/CloudPhotoService';
+// importación eliminada: CloudPhotoService no existe
 import { FirebasePhotoService } from '../../services/FirebasePhotoService';
 import { ChecklistItem } from '../../types';
+
+// Tipo local para fotos compatible con PhotoButton y lógica actual
+type PhotoMetadata = {
+  id: string;
+  url: string;
+  path: string;
+  uploadedAt: string;
+  fileName: string;
+};
 
 // Componente Text seguro que previene el error "Text strings must be rendered within a <Text> component"
 const Text = ({ children, style, ...props }: any) => {
@@ -268,6 +277,32 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
     );
   };
 
+  // Agrupación de items por encabezados detectados
+  function agruparPorEncabezados(items: ChecklistItem[]) {
+    // Detectar dinámicamente los encabezados presentes en los datos
+    const grupos: { encabezado: string, items: ChecklistItem[] }[] = [];
+    let grupoActual: { encabezado: string, items: ChecklistItem[] } | null = null;
+    let ultimoEncabezado = '';
+    for (const item of items) {
+      const unidad = item.unidad?.trim() || '';
+      const descripcion = item.descripcion?.trim().toUpperCase() || '';
+      // Si la unidad es un encabezado (mayúsculas y sin números) o la descripción es especial
+      if (
+        unidad && unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2 && unidad !== ultimoEncabezado
+        || ["EXISTENTE NO SE MODIFICA","NO ES MOTIVO DE LA OBRA","NO SE HA INICIADO","OBSERVACIONES/ANOTACIONES","FIRMAS"].includes(descripcion)
+      ) {
+        grupoActual = { encabezado: unidad || descripcion, items: [] };
+        grupos.push(grupoActual);
+        ultimoEncabezado = unidad || descripcion;
+      } else if (grupoActual) {
+        grupoActual.items.push(item);
+      }
+    }
+    // Solo devolver grupos con al menos un item
+    return grupos.filter(g => g.items.length > 0);
+  }
+
+  const gruposChecklist = agruparPorEncabezados(items);
   const completedCount = items.filter(item => item.completado).length;
   const totalCount = items.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -280,10 +315,11 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
           <Text style={styles.loadingText}>Cargando checklist...</Text>
         </View>
       </View>
-    );  }  return (
+    );
+  }
+  return (
     <View style={[styles.container, styles.gradientBackground]}>
       <StatusBar barStyle="light-content" backgroundColor="#4a6cf7" />
-      
       <View style={styles.headerContainer}>
         <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
           <Text style={styles.backButtonText}>← Volver</Text>
@@ -299,44 +335,54 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
           </View>
         </View>
       </View>
-
       <View style={styles.listWrapper}>
-        <FlatList
-          data={items}
-          renderItem={renderItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContainer}
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={onRefresh}
-              tintColor="#fff"
-              titleColor="#fff"
-            />
-          }
-          ListEmptyComponent={
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.listContainer}>
+          {/* Collapsibles por grupo */}
+          {gruposChecklist.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No hay items en este checklist</Text>
               <Text style={styles.emptySubtext}>Desliza hacia abajo para refrescar</Text>
             </View>
-          }
-          showsVerticalScrollIndicator={false}
-        />
-
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={saveChecklist}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator size="small" color="#fff" />
+          ) : gruposChecklist.length === 1 ? (
+            // Si solo hay un grupo, mostrar los items directamente sin collapsible
+            gruposChecklist[0].items.map(item => renderItem({ item }))
           ) : (
-            <Text style={styles.saveButtonText}>💾 Guardar Checklist</Text>
+            gruposChecklist.map((grupo, idx) => (
+              <TouchableOpacity
+                key={idx}
+                style={{ marginBottom: 12, backgroundColor: '#e2e8f0', borderRadius: 12, padding: 16 }}
+                onPress={() => {
+                  const params = {
+                    grupo: grupo.encabezado,
+                    items: grupo.items,
+                    itemPhotos: grupo.items.reduce((acc, item) => {
+                      acc[item.id] = itemPhotos[item.id] || [];
+                      return acc;
+                    }, {} as { [itemId: string]: any[] }),
+                  };
+                  console.log('NAVEGANDO A GrupoChecklistScreen CON:', params);
+                  navigation.navigate('GrupoChecklistScreen', params);
+                }}
+              >
+                <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#4a6cf7' }}>{grupo.encabezado}</Text>
+                <Text style={{ color: '#718096', fontSize: 14 }}>{grupo.items.length} ítems</Text>
+              </TouchableOpacity>
+            ))
           )}
-        </TouchableOpacity>
+          {/* Save Button */}
+          <TouchableOpacity
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            onPress={saveChecklist}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.saveButtonText}>💾 Guardar Checklist</Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
       </View>
-
       {/* Observations Modal */}
       <Modal visible={modalVisible} animationType="slide">
         <View style={styles.modalContainer}>
@@ -346,20 +392,17 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
               <Text style={styles.modalClose}>X</Text>
             </TouchableOpacity>
           </View>
-          
           {selectedItem && (
             <Text style={styles.modalItemTitle}>
               {String(selectedItem.descripcion || selectedItem.unidad || 'Item sin nombre')}
             </Text>
           )}
-
           {selectedItem?.observaciones ? (
             <View style={styles.observationsHistoryContainer}>
               <Text style={styles.observationsHistoryTitle}>Historial:</Text>
               <Text style={styles.observationsHistory}>{String(selectedItem.observaciones)}</Text>
             </View>
           ) : null}
-
           <Text style={styles.newObservationTitle}>Nueva observación:</Text>
           <TextInput
             style={styles.observationsInput}
@@ -369,7 +412,6 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
             multiline
             numberOfLines={4}
           />
-
           <View style={styles.modalActions}>
             <TouchableOpacity
               style={styles.modalCancelButton}

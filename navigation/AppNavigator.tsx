@@ -3,19 +3,19 @@
  * Conecta todas las pantallas profesionales
  */
 
-import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import React from 'react';
 
 // Importar pantallas profesionales
-import LoginScreen from '../screens/LoginScreen';
-import JefesScreen from '../screens/JefesScreen';
-import ObrasScreen from '../screens/ObrasScreen';
-import InstalacionesScreen from '../screens/InstalacionesScreen';
-import ChecklistScreen from '../screens/ChecklistScreen';
+import ChecklistScreen from '../src/screens/ChecklistScreen';
+import GrupoChecklistScreen from '../src/screens/GrupoChecklistScreen';
+import InstalacionesScreen from '../src/screens/InstalacionesScreen';
+import JefesScreen from '../src/screens/JefesScreen';
+import LoginScreen from '../src/screens/LoginScreen';
+import ObrasScreen from '../src/screens/ObrasScreen';
 
 // Importar tipos de navegación
-import { RootStackParamList } from '../types';
 
 const Stack = createStackNavigator();
 
@@ -23,6 +23,7 @@ const AppNavigator = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator
+        id={undefined}
         initialRouteName="Login"
         screenOptions={{
           headerStyle: {
@@ -37,38 +38,36 @@ const AppNavigator = () => {
         <Stack.Screen 
           name="Login" 
           component={LoginScreen}
-          options={{
-            headerShown: false, // Ocultar header en login
-          }}
-        />        <Stack.Screen 
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
           name="Jefes" 
           component={JefesScreen}
-          options={{
-            headerShown: false, // Usar header personalizado
-          }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen 
           name="Obras" 
           component={ObrasScreen}
-          options={{
-            headerShown: false, // Usar header personalizado
-          }}
-        />        <Stack.Screen 
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
           name="Instalaciones" 
           component={InstalacionesScreen}
-          options={{
-            headerShown: false, // Usar header personalizado
-          }}
-        />        <Stack.Screen 
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen 
           name="Checklist" 
           component={ChecklistScreen}
-          options={{
-            headerShown: false, // Usar header personalizado
-          }}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="GrupoChecklistScreen"
+          component={GrupoChecklistScreen}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </NavigationContainer>
   );
-};
+}
 
 export default AppNavigator;
