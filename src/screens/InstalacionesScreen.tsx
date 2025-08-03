@@ -90,9 +90,9 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
         return;
       }      setRealSpreadsheetId(resolvedSpreadsheetId);
       
-      // 2. Usar el resolvedSpreadsheetId para obtener las instalaciones
-      const data = await ApiService.getInstalacionesDeObra(resolvedSpreadsheetId);
-      console.log('✅ Instalaciones recibidas:', data);
+      // 2. Usar el resolvedSpreadsheetId para obtener las pestañas (instalaciones)
+      const data = await ApiService.getPestanasDeObra(resolvedSpreadsheetId);
+      console.log('✅ Pestañas/Instalaciones recibidas:', data);
       console.log('📊 Cantidad de instalaciones:', data?.length || 0);
       setInstalaciones(data || []);
       console.log('🎯 setState completado para instalaciones');

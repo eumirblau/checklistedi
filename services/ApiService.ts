@@ -1,6 +1,6 @@
-import { JefeDeGrupo, Obra, Instalacion, ChecklistItem, TipoInstalacion, EstadoItem } from '../types';
+import { ChecklistItem, EstadoItem, Instalacion, JefeDeGrupo, Obra, TipoInstalacion } from '../types';
 
-const BASE_URL = 'https://europe-west1-checkedhid.cloudfunctions.net';
+const BASE_URL = 'https://us-central1-checklistedhinor.cloudfunctions.net';
 
 // API Service con fallback a datos offline para mayor estabilidad
 class ApiService {
@@ -40,15 +40,21 @@ class ApiService {
       'test-sheet-004': ['Aire Acondicionado', 'Sistemas de Alarma'],
       'test-sheet-005': ['Riego Automático', 'Iluminación Exterior'],
       'test-sheet-006': ['Escaleras Mecánicas', 'Sistema de Sonido', 'Videovigilancia'],
+      // Instalaciones reales para las obras de Javier
+      '1YWMpahk6CAtw1trGiKuLMlJRTL0JOy9x7rRkxrAaRn4': ['Instalación Eléctrica Principal', 'Sistema de Climatización', 'Red de Datos'],
+      '15EYdKNe_GqHi918p8CVh3-RjCc-zEy8jrdWNdoX61A': ['Instalación Hidráulica', 'Sistema de Seguridad', 'Iluminación LED'],
+      '17OfTNY0OBiId27vCXqIa7p8nhmuvvk9Mh9C_WLGcnhA': ['Sistema de Aire Acondicionado', 'Red Eléctrica', 'Instalación de Gas'],
+      '1ICEl45f3I59Iz4JDTRHD17huoiyISBxCO9eRXWcPdyU': ['Instalación de Fontanería', 'Sistema de Alarmas', 'Climatización Central'],
     }
   };
   // ✅ ARQUITECTURA ESCALABLE: Obtener ID real de spreadsheet dinámicamente
   public async mapToRealSpreadsheetId(obraIdOrName: string): Promise<string> {
-    console.log(`[ApiService.mapToRealSpreadsheetId] Received obraIdOrName: ${obraIdOrName}`);
+    console.log(`🚀 [ApiService.mapToRealSpreadsheetId] INICIO - Received obraIdOrName: ${obraIdOrName}`);
+    console.log(`🔍 [ApiService.mapToRealSpreadsheetId] Tipo:`, typeof obraIdOrName);
 
     // Validar que obraIdOrName no sea undefined/null
     if (!obraIdOrName || typeof obraIdOrName !== 'string') {
-      console.error(`[ApiService.mapToRealSpreadsheetId] obraIdOrName es undefined/null/invalid: ${obraIdOrName}`);
+      console.error(`❌ [ApiService.mapToRealSpreadsheetId] obraIdOrName es undefined/null/invalid: ${obraIdOrName}`);
       throw new Error('ID de obra no válido');
     }
 
@@ -60,10 +66,14 @@ class ApiService {
 
     try {
       // Buscar en todas las obras cacheadas de todos los jefes
+      console.log('[ApiService.mapToRealSpreadsheetId] Buscando en cache...');
+      console.log('[ApiService.mapToRealSpreadsheetId] Cache disponible:', Object.keys(this.obraCache));
+      
       for (const [jefeNombre, obras] of Object.entries(this.obraCache)) {
+        console.log(`[ApiService.mapToRealSpreadsheetId] Revisando ${obras.length} obras de ${jefeNombre}:`, obras.map(o => `${o.id}:${o.nombre}`));
         const obra = obras.find(o => o.id === obraIdOrName || o.nombre === obraIdOrName);
         if (obra && obra.spreadsheetId) {
-          console.log(`[ApiService.mapToRealSpreadsheetId] Found ${obraIdOrName} in cache for ${jefeNombre}: ${obra.spreadsheetId}`);
+          console.log(`[ApiService.mapToRealSpreadsheetId] ✅ Found ${obraIdOrName} in cache for ${jefeNombre}: ${obra.spreadsheetId}`);
           return obra.spreadsheetId;
         }
       }
@@ -71,11 +81,16 @@ class ApiService {
       // Si no está en cache, intentar obtener obras de todos los jefes
       console.log('[ApiService.mapToRealSpreadsheetId] Not found in cache, refreshing from API...');
       const jefes = await this.getJefesDeGrupo();
+      console.log('[ApiService.mapToRealSpreadsheetId] Jefes obtenidos:', jefes.map(j => j.nombre));
+      
       for (const jefe of jefes) {
+        console.log(`[ApiService.mapToRealSpreadsheetId] Obteniendo obras de ${jefe.nombre}...`);
         const obras = await this.getObrasPorJefe(jefe.nombre);
+        console.log(`[ApiService.mapToRealSpreadsheetId] Obras de ${jefe.nombre}:`, obras.map(o => `${o.id}:${o.nombre}:${o.spreadsheetId}`));
+        
         const obra = obras.find(o => o.id === obraIdOrName || o.nombre === obraIdOrName);
         if (obra && obra.spreadsheetId) {
-          console.log(`[ApiService.mapToRealSpreadsheetId] Found ${obraIdOrName} for ${jefe.nombre}: ${obra.spreadsheetId}`);
+          console.log(`[ApiService.mapToRealSpreadsheetId] ✅ Found ${obraIdOrName} for ${jefe.nombre}: ${obra.spreadsheetId}`);
           return obra.spreadsheetId;
         }
       }
@@ -83,10 +98,9 @@ class ApiService {
       console.warn(`[ApiService.mapToRealSpreadsheetId] Error dinámico: ${error instanceof Error ? error.message : String(error)}`);
     }
 
-    // Si todo falla, devolver un ID por defecto (San Blas)
-    const defaultId = '1__5J8ykBjRvgFYW3d4i0vCyM6ukZ4Ax4Pf21N2Le7tw';
-    console.warn(`[ApiService.mapToRealSpreadsheetId] ⚠️ Obra '${obraIdOrName}' no encontrada. Usando ID por defecto: ${defaultId}`);
-    return defaultId;
+    // Si no se encuentra la obra, devolver null o lanzar error
+    console.error(`[ApiService.mapToRealSpreadsheetId] ❌ Obra '${obraIdOrName}' no encontrada en ningún jefe`);
+    throw new Error(`Obra '${obraIdOrName}' no encontrada`);
   }  // Method to fetch installations for a given construction work (obra)
   async getInstalacionesDeObra(obraIdOrName: string): Promise<Instalacion[]> {
     console.log(`[ApiService.getInstalacionesDeObra] Called with obraIdOrName: ${obraIdOrName}`);
@@ -110,16 +124,51 @@ class ApiService {
         throw new Error(`Error fetching instalaciones for ${obraIdOrName}: ${response.statusText}`);
       }
       
-      // La API puede devolver strings (nombres) u objetos completos desde la hoja maestra
+      // La API devuelve un objeto con propiedad 'instalaciones': {"instalaciones": [...]}
       const data = await response.json();
       console.log('✅ Instalaciones obtenidas de Google Sheets (raw):', data);
       
-      if (!Array.isArray(data)) {
+      // Extraer el array de instalaciones del objeto respuesta
+      const instalacionesRaw = data.instalaciones;
+      console.log('🔍 [ApiService.getInstalacionesDeObra] instalacionesRaw extraído:', instalacionesRaw);
+      console.log('🔍 [ApiService.getInstalacionesDeObra] Es array?', Array.isArray(instalacionesRaw));
+      console.log('🔍 [ApiService.getInstalacionesDeObra] Longitud:', instalacionesRaw?.length);
+      
+      if (!Array.isArray(instalacionesRaw)) {
         console.warn('⚠️ API devolvió datos inválidos para instalaciones');
         return [];
       }
       
-      return data.map((item: any, index: number) => {
+      console.log('🚦 [ApiService.getInstalacionesDeObra] Verificando si array está vacío...');
+      console.log('🚦 [ApiService.getInstalacionesDeObra] instalacionesRaw.length:', instalacionesRaw.length);
+      
+      // Si la API devuelve un array vacío, usar datos offline como fallback
+      if (instalacionesRaw.length === 0) {
+        console.log('📱 [ApiService.getInstalacionesDeObra] API devolvió array vacío, usando datos offline');
+        console.log('🔍 [ApiService.getInstalacionesDeObra] Buscando instalaciones offline para spreadsheetId:', spreadsheetId);
+        console.log('🗂️ [ApiService.getInstalacionesDeObra] Instalaciones offline disponibles:', Object.keys(this.datosOffline.instalaciones));
+        
+        const instalacionesOffline = this.datosOffline.instalaciones[spreadsheetId] || [];
+        console.log('📋 [ApiService.getInstalacionesDeObra] Instalaciones encontradas para', spreadsheetId, ':', instalacionesOffline);
+        
+        if (instalacionesOffline.length === 0) {
+          console.warn('⚠️ [ApiService.getInstalacionesDeObra] No hay instalaciones offline para este spreadsheetId');
+          return [];
+        }
+        
+        const result = instalacionesOffline.map((nombre: string, index: number) => ({
+          id: `${spreadsheetId}-${nombre.replace(/\s+/g, '-')}-${index}`,
+          nombre: nombre,
+          nombreAmigable: nombre,
+          tipo: TipoInstalacion.OTROS,
+          estado: EstadoItem.PENDIENTE,
+        }));
+        
+        console.log('✅ [ApiService.getInstalacionesDeObra] Retornando instalaciones offline:', result);
+        return result;
+      }
+      
+      return instalacionesRaw.map((item: any, index: number) => {
         if (typeof item === 'string') {
           // Si es solo el nombre, crear objeto básico
           return {
@@ -142,9 +191,87 @@ class ApiService {
       });
     } catch (error) {
       console.error(`[ApiService.getInstalacionesDeObra] Error fetching or processing instalaciones for ${obraIdOrName} (ID: ${spreadsheetId}):`, error);
-      throw error;
+      console.log('📱 [ApiService.getInstalacionesDeObra] Usando datos offline como fallback por error');
+      console.log('🔍 [ApiService.getInstalacionesDeObra] Buscando instalaciones offline para spreadsheetId:', spreadsheetId);
+      console.log('🗂️ [ApiService.getInstalacionesDeObra] Instalaciones offline disponibles:', Object.keys(this.datosOffline.instalaciones));
+      
+      const instalacionesOffline = this.datosOffline.instalaciones[spreadsheetId] || [];
+      console.log('📋 [ApiService.getInstalacionesDeObra] Instalaciones encontradas para', spreadsheetId, ':', instalacionesOffline);
+      
+      if (instalacionesOffline.length === 0) {
+        console.warn('⚠️ [ApiService.getInstalacionesDeObra] No hay instalaciones offline para este spreadsheetId');
+        return [];
+      }
+      
+      const result = instalacionesOffline.map((nombre: string, index: number) => ({
+        id: `${spreadsheetId}-${nombre.replace(/\s+/g, '-')}-${index}`,
+        nombre: nombre,
+        nombreAmigable: nombre,
+        tipo: TipoInstalacion.OTROS,
+        estado: EstadoItem.PENDIENTE,
+      }));
+      
+      console.log('✅ [ApiService.getInstalacionesDeObra] Retornando instalaciones offline por error:', result);
+      return result;
     }
   }
+
+  // Función simple para obtener pestañas (instalaciones) de una obra
+  async getPestanasDeObra(spreadsheetId: string): Promise<Instalacion[]> {
+    console.log(`🚀 [ApiService.getPestanasDeObra] INICIO - Called with spreadsheetId: ${spreadsheetId}`);
+    console.log(`🔍 [ApiService.getPestanasDeObra] Tipo de spreadsheetId:`, typeof spreadsheetId);
+    console.log(`📏 [ApiService.getPestanasDeObra] Longitud de spreadsheetId:`, spreadsheetId?.length);
+    
+    if (!spreadsheetId) {
+      console.error(`❌ [ApiService.getPestanasDeObra] spreadsheetId es null/undefined`);
+      return [];
+    }
+    
+    try {
+      // Usar el endpoint correcto para obtener pestañas
+      const response = await fetch(`${BASE_URL}/getPestanasDeObra?spreadsheetId=${spreadsheetId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ [getPestanasDeObra] API response:', data);
+        
+        if (data.pestanas && Array.isArray(data.pestanas) && data.pestanas.length > 0) {
+          // Convertir pestañas a instalaciones
+          const result = data.pestanas.map((pestana: any, index: number) => ({
+            id: `${spreadsheetId}-${pestana.title.replace(/\s+/g, '-')}-${index}`,
+            nombre: pestana.title,
+            nombreAmigable: pestana.title,
+            tipo: TipoInstalacion.OTROS,
+            estado: EstadoItem.PENDIENTE,
+          }));
+          
+          console.log('✅ [getPestanasDeObra] Retornando pestañas de API:', result);
+          return result;
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ [getPestanasDeObra] API error, usando fallback:', error);
+    }
+    
+    // Fallback: usar datos offline
+    console.log('📱 [getPestanasDeObra] Usando datos offline para spreadsheetId:', spreadsheetId);
+    console.log('🗂️ [getPestanasDeObra] Claves disponibles:', Object.keys(this.datosOffline.instalaciones));
+    
+    const instalacionesOffline = this.datosOffline.instalaciones[spreadsheetId] || [];
+    console.log('📋 [getPestanasDeObra] Instalaciones offline encontradas:', instalacionesOffline);
+    
+    const result = instalacionesOffline.map((nombre: string, index: number) => ({
+      id: `${spreadsheetId}-${nombre.replace(/\s+/g, '-')}-${index}`,
+      nombre: nombre,
+      nombreAmigable: nombre,
+      tipo: TipoInstalacion.OTROS,
+      estado: EstadoItem.PENDIENTE,
+    }));
+    
+    console.log('✅ [getPestanasDeObra] Retornando:', result);
+    return result;
+  }
+
   // Method to fetch checklist items for a specific installation and obra
   async getItemsDeChecklist(obraIdOrName: string, instalacionNombre: string): Promise<ChecklistItem[]> {
     console.log(`[ApiService.getItemsDeChecklist] Called with obraIdOrName: ${obraIdOrName}, instalacion: ${instalacionNombre}`);
@@ -178,44 +305,69 @@ class ApiService {
       if (!response.ok) {
         console.error(`[ApiService.getItemsDeChecklist] API error for ${obraIdOrName}/${actualSheetName} (ID: ${spreadsheetId}): ${response.status}`);
         throw new Error(`Error fetching items for ${obraIdOrName}/${actualSheetName}: ${response.statusText}`);
-      }      // La API devuelve array de objetos con la estructura real de Google Sheets
-      const itemsData = await response.json() as unknown as any[];
-      console.log('✅ Datos raw de API recibidos:', JSON.stringify(itemsData, null, 2));
+      }      // La API devuelve un objeto con propiedad 'items': {"items": [...]}
+      const responseData = await response.json();
+      console.log('✅ Datos raw de API recibidos:', JSON.stringify(responseData, null, 2));
       
-      // MAPEO REAL con los datos de Google Sheets
-      return itemsData.map((item: any, index: number) => {
-        // Determinar si está completado basado en s_contrato
-        const isCompleted = item.s_contrato === '√' || item.s_contrato === 'true' || item.s_contrato === true;
+      // Extraer el array de items del objeto respuesta
+      const itemsData = responseData.items;
+      if (!Array.isArray(itemsData)) {
+        console.warn('⚠️ API devolvió datos inválidos para items');
+        return [];
+      }
+      
+      // Los datos vienen como array de arrays: [["","ACOMETIDA BT","","","","EXISTENTE NO SE MODIFICA"], ...]
+      // Necesitamos mapear cada fila (array) a un objeto ChecklistItem
+      console.log(`📊 [ApiService.getItemsDeChecklist] Procesando ${itemsData.length} filas de datos`);
+      
+      return itemsData.map((row: any[], index: number) => {
+        // Verificar que sea un array válido
+        if (!Array.isArray(row)) {
+          console.log(`⚠️ [ApiService.getItemsDeChecklist] Fila ${index} no es array:`, row);
+          return null;
+        }
         
-        // Crear ID único basado en la fila o contenido
-        const itemId = item.id || `${spreadsheetId}-${index}-${(item.unidad || item.descripcion || 'item').replace(/\s+/g, '-')}`;
+        // Mapear las columnas según la estructura de Google Sheets
+        // Basado en el header: ["","UNIDAD","","","","DESCRIPCIÓN","","","","","","","S/CONTRATO","","Estadoapp","fechapp","Observaciones",...]
+        const unidad = row[1] ? String(row[1]).trim() : '';
+        const descripcion = row[5] ? String(row[5]).trim() : '';
+        const s_contrato = row[12] ? String(row[12]).trim() : '';
+        const fechapp = row[15] ? String(row[15]).trim() : '';
+        const observaciones = row[16] ? String(row[16]).trim() : '';
         
-        console.log(`[ApiService.getItemsDeChecklist] Procesando item ${index}:`, {
-          unidad: item.unidad,
-          descripcion: item.descripcion,
-          s_contrato: item.s_contrato,
+        // Determinar si está completado
+        const isCompleted = s_contrato === '√' || s_contrato === 'true';
+        
+        // Crear ID único
+        const itemId = `${spreadsheetId}-${index}-${(unidad || descripcion || 'item').replace(/\s+/g, '-')}`;
+        
+        console.log(`[ApiService.getItemsDeChecklist] Procesando fila ${index}:`, {
+          unidad,
+          descripcion,
+          s_contrato,
           isCompleted,
-          rowIndex: item.rowIndex || index + 2 // +2 porque las filas empiezan en 2 en Google Sheets
+          rowIndex: index + 1 // Índice de fila real
         });
         
         return {
           id: itemId,
-          descripcion: String(item.descripcion || '').trim(),
+          descripcion: descripcion,
           completado: isCompleted,
-          observaciones: String(item.observaciones || '').trim(),
-          unidad: String(item.unidad || '').trim(),
-          s_contrato: String(item.s_contrato || '').trim(),
-          fechapp: String(item.fechapp || '').trim(),
-          cantidad: item.cantidad ? Number(item.cantidad) : undefined,
-          fechaCompletado: isCompleted ? (item.fechapp || new Date().toISOString()) : undefined,
-          rowIndex: item.rowIndex || index + 2, // Índice real de la fila en Google Sheets
-          meta: item.meta ? String(item.meta) : undefined,
-          actual: item.actual ? String(item.actual) : undefined,
+          observaciones: observaciones || undefined,
+          unidad: unidad || undefined,
+          s_contrato: s_contrato || undefined,
+          fechapp: fechapp || undefined,
+          cantidad: undefined,
+          fechaCompletado: isCompleted ? (fechapp || new Date().toISOString()) : undefined,
+          rowIndex: index + 1, // Índice real de la fila en Google Sheets
+          meta: undefined,
+          actual: undefined,
           subItems: [],
         };
       }).filter(item => {
-        // Filtrar items que tengan al menos unidad o descripción
-        const hasContent = item.unidad || item.descripcion;
+        // Filtrar items nulos y que tengan contenido
+        if (!item) return false;
+        const hasContent = Boolean(item.unidad || item.descripcion);
         if (!hasContent) {
           console.log('[ApiService.getItemsDeChecklist] Filtrando item vacío:', item);
         }
@@ -415,30 +567,28 @@ class ApiService {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
       
-      // La API puede devolver un array de strings (nombres) o objetos completos
+      // La API devuelve un objeto con propiedad 'jefes': {"jefes": [["JEFES DE GRUPO"], ["Monserrat"], ...]}
       const data = await response.json();
       console.log('✅ [ApiService.getJefesDeGrupo] Jefes obtenidos de Google Sheets (raw):', data);
       
-      if (!Array.isArray(data) || data.length === 0) {
+      // Extraer el array de jefes del objeto respuesta
+      const jefesRaw = data.jefes;
+      if (!Array.isArray(jefesRaw) || jefesRaw.length === 0) {
         throw new Error('No se pudieron obtener los jefes de grupo');
       }
-        // Si son strings simples, crear objetos básicos sin email artificial
-      const jefes = data.map((item, index) => {
-        if (typeof item === 'string') {
-          return {
-            id: (index + 1).toString(),
-            nombre: item,
-            email: '', // Sin email artificial, usar dato real de la hoja si está disponible
-          };
-        } else {
-          // Si ya son objetos completos de la hoja maestra
-          return {
-            id: item.id || (index + 1).toString(),
-            nombre: item.nombre || item,
-            email: item.email || '', // Solo usar email si viene de la hoja
-          };
-        }
-      });
+      
+      // Filtrar el header y obtener nombres únicos de jefes
+      const nombresJefes = jefesRaw
+        .filter(row => Array.isArray(row) && row.length > 0 && row[0] !== 'JEFES DE GRUPO')
+        .map(row => row[0])
+        .filter((nombre, index, array) => array.indexOf(nombre) === index);
+        
+      // Si son strings simples, crear objetos básicos sin email artificial
+      const jefes = nombresJefes.map((nombre, index) => ({
+        id: (index + 1).toString(),
+        nombre: nombre,
+        email: '', // Sin email artificial, usar dato real de la hoja si está disponible
+      }));
       
       console.log('🔄 [ApiService.getJefesDeGrupo] Jefes procesados desde hoja maestra:', jefes);
       console.log('✅ [ApiService.getJefesDeGrupo] Retornando', jefes.length, 'jefes de la API real');
@@ -490,49 +640,56 @@ class ApiService {
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
-      // Asumimos que la API devuelve un array de objetos. Cada objeto DEBE tener:
-      // - 'id': Identificador de la obra en la app (ej: "ObraID001J")
-      // - 'nombre': Nombre de la obra (ej: "Copia dneutra")
-      // - 'spreadsheetId': EL ID REAL DE LA HOJA DE GOOGLE SHEETS (ej: "17OfTNY0OBiId27vCXqIa7p8nhmuvvk9Mh9C_WLGcnhA")
-      // Otros campos como 'centro', 'googleSheetId' son opcionales o pueden ser alias.
-      const data = await response.json() as unknown as Array<{
-        id?: string;                 // Identificador de la obra en la app
-        nombre?: string;             // Nombre de la obra
-        spreadsheetId?: string;      // ID REAL DE LA HOJA DE GOOGLE SHEETS (campo esperado)
-        centro?: string;             // Posible alias para 'nombre' o 'id' si la API lo usa así
-        googleSheetId?: string;      // Posible alias para 'spreadsheetId' si la API lo usa así
-        ubicacion?: string;
-        estado?: string;
-      }>;
+      // La API devuelve un objeto con propiedad 'obras': {"obras": [["Javier","ObraID001J","Copia de Barajas pabellón","https://docs.google.com/..."], ...]}
+      const data = await response.json();
       console.log('✅ Obras obtenidas de Google Sheets para', jefeNombre, '(raw):', data);
-      if (!Array.isArray(data)) {
+      
+      // Extraer el array de obras del objeto respuesta
+      const obrasRaw = data.obras;
+      if (!Array.isArray(obrasRaw)) {
         console.warn('⚠️ API devolvió datos inválidos para obras');
         throw new Error('API devolvió datos inválidos');
-      }        const obras = data.map((item: any, index: number): Obra => {
-        // ✅ ARQUITECTURA ESCALABLE: La API ahora devuelve IDs reales de Google Sheets
-        // Formato esperado: {centro: "ObraID003J", spreadsheetId: "17OfTNY0OBiId27vCXqIa7p8nhmuvvk9Mh9C_WLGcnhA"}
-        const obraAppId = item.centro || item.id || item.nombre || `obra-${index}-${Math.random().toString(36).substr(2, 9)}`;
-        const obraNombre = item.nombre || item.centro || `Obra ${index + 1}`;
-        const realSheetId = item.spreadsheetId; // ✅ Ahora contiene el ID real de Google Sheets
+      }
+      
+      // Procesar las obras - cada fila viene como [jefe, obraId, nombre, url]
+      const obras = obrasRaw.map((row: any[], index: number): Obra => {
+        if (!Array.isArray(row) || row.length < 4) {
+          console.warn(`⚠️ Fila de obra ${index} tiene formato incorrecto:`, row);
+          return {
+            id: `obra-${index}`,
+            nombre: `Obra ${index + 1}`,
+            spreadsheetId: '',
+            ubicacion: '',
+            estado: 'Activo'
+          };
+        }
+        
+        const [jefe, obraId, nombre, url] = row;
+        
+        // Extraer spreadsheetId de la URL de Google Sheets
+        let spreadsheetId = '';
+        if (url && typeof url === 'string' && url.includes('spreadsheets/d/')) {
+          const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+          spreadsheetId = match ? match[1] : '';
+        }
         
         console.log(`🔍 [ApiService.getObrasPorJefe] Procesando obra ${index}:`, {
-          obraAppId,
-          obraNombre,
-          realSheetId,
-          itemRaw: item
+          jefe,
+          obraId,
+          nombre,
+          url,
+          spreadsheetId
         });
         
-        if (!realSheetId) {
-          console.warn(`❌ Obra ${obraNombre} (${obraAppId}) no tiene spreadsheetId desde la API. Las instalaciones no cargarán.`);
-        } else {
-          console.log(`✅ Obra ${obraNombre} (${obraAppId}) con ID real: ${realSheetId}`);
-        }        return {
-          id: obraAppId, // ID de la obra en la app (ej: "ObraID003J")
-          nombre: obraNombre, // Nombre de la obra
-          spreadsheetId: realSheetId as string, // ID real de Google Sheets
-          ubicacion: item.ubicacion || 'Madrid',
-          estado: item.estado || 'Activo',        };
+        return {
+          id: obraId || `obra-${index}`,
+          nombre: nombre || `Obra ${index + 1}`,
+          spreadsheetId: spreadsheetId,
+          ubicacion: nombre || '',
+          estado: 'Activo'
+        };
       });
+      
       console.log('🔄 [ApiService.getObrasPorJefe] Obras mapeadas (desde API) correctamente:', obras);
       console.log('✅ [ApiService.getObrasPorJefe] Retornando', obras.length, 'obras de la API real para', jefeNombre);
       return obras;
