@@ -338,6 +338,7 @@ function GrupoChecklistScreen({ route, navigation }) {
               <View style={styles.buttonRow}>
                 <PhotoButton
                   itemId={item.id}
+                  checklistName={item.unidad}
                   photos={itemPhotos[item.id] || []}
                   onPhotoTaken={(url) => handlePhotoTaken(item.id, url)}
                   onViewPhotos={() => handleViewPhotos(item.id)}

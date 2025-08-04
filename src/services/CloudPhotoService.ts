@@ -20,6 +20,11 @@ export class CloudPhotoService {
     fecha?: string;
     fileName: string;
   }): Promise<boolean> {
+    // TEMPORAL: Deshabilitado porque la Cloud Function no existe
+    console.warn('⚠️ [CloudPhotoService] deletePhotoFromFirebase temporalmente deshabilitado - Cloud Function no disponible');
+    return false;
+    
+    /* CÓDIGO ORIGINAL COMENTADO HASTA QUE ESTÉ LA CLOUD FUNCTION
     // Carpeta: checklist-photos/jefeGrupo/obra/instalacion/itemId/fecha/fileName
     const fechaStr = options?.fecha || '';
     // Usar el nombre tal cual, permitiendo espacios y caracteres
@@ -50,6 +55,7 @@ export class CloudPhotoService {
       console.error('❌ [CloudPhotoService] Error eliminando foto:', error);
       return false;
     }
+    */
   }
   // Método para obtener la lista de fotos de una carpeta en Storage (galería)
   static async listPhotos(options: {
@@ -59,15 +65,16 @@ export class CloudPhotoService {
     itemId: string;
     fecha?: string;
   }): Promise<PhotoMetadata[]> {
-    // Carpeta: checklist-photos/jefeGrupo/obra/instalacion/itemId/fecha
-    const fechaStr = options?.fecha || '';
     // Normalizar nombres para carpetas legibles y sin espacios
-    // Usar el nombre tal cual, permitiendo espacios y caracteres
+    const normalize = (str?: string) => (str ? String(str).trim().replace(/\s+/g, '_').replace(/[^\w\-]/g, '') : 'sin-obra');
     const jefeGrupo = options?.jefeGrupo ? String(options.jefeGrupo).trim() : 'sin-jefe';
-    const obra = options?.obra ? String(options.obra).trim() : 'sin-obra';
-    const instalacion = options?.instalacion ? String(options.instalacion).trim() : 'sin-instalacion';
-    const itemId = options.itemId;
-    const folder = `checklist-photos/${jefeGrupo}/${obra}/${instalacion}/${itemId}`;
+    const obra = normalize(options?.obra);
+    const instalacion = normalize(options?.instalacion);
+    // Carpeta completa: checklist-photos/jefeGrupo/obra/instalacion/itemId
+    const folder = `checklist-photos/${jefeGrupo}/${obra}/${instalacion}/${options.itemId}`;
+    
+    console.log('📂 [CloudPhotoService] Listando fotos en:', folder);
+    
     // Supongamos que tienes una Cloud Function que lista los archivos de una carpeta
     const LIST_FUNCTION_URL = 'https://us-central1-checklistedhinor.cloudfunctions.net/listphotosinfolder';
     try {
@@ -78,11 +85,23 @@ export class CloudPhotoService {
         },
         body: JSON.stringify({ folder })
       });
+      
       if (!response.ok) {
         const errorText = await response.text();
+        console.warn(`⚠️ [CloudPhotoService] Error listando fotos (${response.status}):`, errorText);
+        
+        // Si es un error del servidor interno, devolver array vacío en lugar de fallar
+        if (response.status === 500) {
+          console.log('📂 [CloudPhotoService] Error interno del servidor, devolviendo array vacío');
+          return [];
+        }
+        
         throw new Error(`Error en listPhotos: ${response.status} - ${errorText}`);
       }
+      
       const result = await response.json();
+      console.log('✅ [CloudPhotoService] Fotos listadas:', result.photos?.length || 0);
+      
       // Espera un array de objetos { url, fileName, uploadedAt }
       return (result.photos || []).map((photo: any) => ({
         id: photo.fileName,
@@ -93,6 +112,7 @@ export class CloudPhotoService {
       }));
     } catch (error) {
       console.error('❌ [CloudPhotoService] Error listando fotos:', error);
+      // En lugar de fallar completamente, devolver array vacío para mejor UX
       return [];
     }
   }
@@ -139,14 +159,14 @@ export class CloudPhotoService {
       }
       // Normalizar nombres para obra e instalación (solo para evitar caracteres inválidos)
       const normalize = (str?: string) => (str ? String(str).trim().replace(/\s+/g, '_').replace(/[^\w\-]/g, '') : 'sin-obra');
-            // Usar el nombre tal cual, permitiendo espacios y caracteres
-            const jefeGrupo = options?.jefeGrupo ? String(options.jefeGrupo).trim() : 'sin-jefe';
-      // Carpeta: checklist-photos/jefeGrupo/obra/instalacion/itemId/fecha
+      // Usar el nombre tal cual, permitiendo espacios y caracteres
+      const jefeGrupo = options?.jefeGrupo ? String(options.jefeGrupo).trim() : 'sin-jefe';
+      // Carpeta completa: checklist-photos/jefeGrupo/obra/instalacion/checklistName
       const obra = normalize(options?.obra);
       const instalacion = normalize(options?.instalacion);
       const folder = `checklist-photos/${jefeGrupo}/${obra}/${instalacion}/${itemId}`;
       // Nombre del archivo: nombre del checklist + timestamp
-      const fileName = `${obra}_${Date.now()}.jpg`;
+      const fileName = `${itemId}_${Date.now()}.jpg`;
       // 3. Llamar a la Cloud Function
       const response = await fetch(this.CLOUD_FUNCTION_URL, {
         method: 'POST',

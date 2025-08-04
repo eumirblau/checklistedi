@@ -14,6 +14,7 @@ export interface PhotoMetadata {
 
 interface PhotoButtonProps {
   itemId: string;
+  checklistName?: string;
   photos: PhotoMetadata[];
   onPhotoTaken: (uri: string) => void;
   onViewPhotos: () => void;
@@ -27,6 +28,7 @@ interface PhotoButtonProps {
 
 const PhotoButton: React.FC<PhotoButtonProps> = ({
   itemId,
+  checklistName,
   photos,
   onPhotoTaken,
   onViewPhotos,
@@ -66,7 +68,7 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
               });
               if (!result.canceled && result.assets && result.assets.length > 0) {
                 const uri = result.assets[0].uri;
-                const photoMetadata = await CloudPhotoService.uploadPhoto(uri, itemId, {
+                const photoMetadata = await CloudPhotoService.uploadPhoto(uri, checklistName || itemId, {
                   jefeGrupo,
                   obra,
                   instalacion,
@@ -101,7 +103,7 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
               });
               if (!result.canceled && result.assets && result.assets.length > 0) {
                 const photoUri = result.assets[0].uri;
-                const photoMetadata = await CloudPhotoService.uploadPhoto(photoUri, itemId, {
+                const photoMetadata = await CloudPhotoService.uploadPhoto(photoUri, checklistName || itemId, {
                   jefeGrupo,
                   obra,
                   instalacion,
@@ -128,7 +130,7 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
               jefeGrupo,
               obra,
               instalacion,
-              itemId,
+              itemId: checklistName || itemId,
               fecha
             });
             if (fotos.length === 0) {
@@ -197,16 +199,39 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
                   )}
                   <TouchableOpacity
                     style={{ marginTop: 4, backgroundColor: '#e74c3c', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}
-                    onPress={() => {
-                      if (typeof onDeletePhoto === 'function') {
-                        onDeletePhoto(photo);
-                        setModalPhotos(modalPhotos.filter((_, i) => i !== idx));
-                      } else {
-                        setModalPhotos(modalPhotos.filter((_, i) => i !== idx));
+                    onPress={async () => {
+                      try {
+                        if (modalTitle === 'Galería Firebase') {
+                          // Para fotos de Firebase, intentar eliminar de Firebase
+                          Alert.alert(
+                            'Eliminar foto',
+                            'Esta función está temporalmente deshabilitada. Solo se eliminará de la vista local.',
+                            [
+                              {
+                                text: 'Eliminar solo de vista',
+                                onPress: () => {
+                                  setModalPhotos(modalPhotos.filter((_, i) => i !== idx));
+                                }
+                              },
+                              { text: 'Cancelar', style: 'cancel' }
+                            ]
+                          );
+                        } else {
+                          // Para fotos locales, eliminar normalmente
+                          if (typeof onDeletePhoto === 'function') {
+                            onDeletePhoto(photo);
+                          }
+                          setModalPhotos(modalPhotos.filter((_, i) => i !== idx));
+                        }
+                      } catch (error) {
+                        console.error('Error eliminando foto:', error);
+                        Alert.alert('Error', 'No se pudo eliminar la foto');
                       }
                     }}
                   >
-                    <Text style={{ color: '#fff', fontSize: 12 }}>Eliminar</Text>
+                    <Text style={{ color: '#fff', fontSize: 12 }}>
+                      {modalTitle === 'Galería Firebase' ? 'Ocultar' : 'Eliminar'}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ))}
