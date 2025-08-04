@@ -1,7 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
-import PhotoButton from '../../components/ui/PhotoButton';
 import ApiService from '../../services/ApiService';
 import { FirebasePhotoService } from '../../services/FirebasePhotoService';
 
@@ -17,6 +16,63 @@ function GrupoChecklistScreen({ route, navigation }) {
 
   // Extraer parámetros necesarios para guardar
   const { spreadsheetId, instalacionNombre, usuario, obraNombre } = params;
+
+  // Función para recargar los datos del grupo desde Google Sheets
+  const loadGroupItems = React.useCallback(async () => {
+    try {
+      console.log('🔄 Recargando items del grupo desde Google Sheets...');
+      const data = await ApiService.getItemsDeChecklist(obraNombre, instalacionNombre);
+      
+      if (data && data.length > 0) {
+        console.log(`✅ Recargados ${data.length} items totales de Google Sheets`);
+        
+        // Agrupar items como en ChecklistScreen y encontrar el grupo actual
+        const grupos = [];
+        let grupoActual = null;
+        let ultimoEncabezado = '';
+        
+        for (const item of data) {
+          const unidad = item.unidad?.trim() || '';
+          const descripcion = item.descripcion?.trim().toUpperCase() || '';
+          
+          // Si la unidad es un encabezado o la descripción es especial
+          if (
+            (unidad && unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2 && unidad !== ultimoEncabezado) ||
+            ["EXISTENTE NO SE MODIFICA","NO ES MOTIVO DE LA OBRA","NO SE HA INICIADO","OBSERVACIONES/ANOTACIONES","FIRMAS"].includes(descripcion)
+          ) {
+            grupoActual = { encabezado: unidad || descripcion, items: [] };
+            grupos.push(grupoActual);
+            ultimoEncabezado = unidad || descripcion;
+          } else if (grupoActual) {
+            grupoActual.items.push(item);
+          }
+        }
+        
+        // Encontrar el grupo que coincide con el grupo actual
+        const grupoEncontrado = grupos.find(g => g.encabezado === grupo);
+        if (grupoEncontrado) {
+          console.log(`✅ Encontrado grupo "${grupo}" con ${grupoEncontrado.items.length} items`);
+          
+          // 🔍 DEBUG: Verificar observaciones que llegan de Google Sheets
+          grupoEncontrado.items.forEach((item, idx) => {
+            console.log(`📝 Item ${idx}: "${item.unidad || item.descripcion}" - Observaciones: "${item.observaciones || 'VACÍAS'}"`);
+          });
+          
+          setItems(grupoEncontrado.items);
+        } else {
+          console.log(`⚠️ No se encontró el grupo "${grupo}"`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error recargando items del grupo:', error);
+    }
+  }, [obraNombre, instalacionNombre, grupo]);
+
+  // ✅ FIX: Recargar datos frescos al abrir la pantalla
+  React.useEffect(() => {
+    console.log('🔄 GrupoChecklistScreen montado - recargando datos frescos...');
+    loadGroupItems();
+  }, [loadGroupItems]);
 
   // Tipo local para fotos compatible con PhotoButton
   type PhotoMetadata = {
@@ -39,17 +95,7 @@ function GrupoChecklistScreen({ route, navigation }) {
     setNewObservation('');
   };
 
-  // Función para manejar cambio de checkbox
-  const handleCheckboxChange = (itemId) => {
-    setItems(prevItems =>
-      prevItems.map(i =>
-        i.id === itemId
-          ? { ...i, completado: !i.completado }
-          : i
-      )
-    );
-  };
-  const saveObservations = () => {
+  const addObservation = () => {
     if (selectedItem && newObservation.trim()) {
       const timestamp = new Date().toLocaleString('es-ES');
       const userName = usuario?.nombre || usuario || 'Usuario';
@@ -66,11 +112,30 @@ function GrupoChecklistScreen({ route, navigation }) {
         )
       );
       
-      // Limpiar el formulario y cerrar modal
-      setNewObservation('');
-      setSelectedItem(null);
+      setNewObservation(''); // Limpiar el campo después de agregar
     }
-    setModalVisible(false);
+  };
+
+  // Función para manejar cambio de checkbox
+  const handleCheckboxChange = (itemId) => {
+    setItems(prevItems =>
+      prevItems.map(i => {
+        if (i.id === itemId) {
+          const newCompletado = !i.completado;
+          const currentDate = new Date().toLocaleDateString('es-ES');
+          const userName = usuario?.nombre || usuario || 'Usuario';
+          
+          return {
+            ...i,
+            completado: newCompletado,
+            // Usar fechapp que es lo que entiende el backend
+            fechapp: newCompletado ? currentDate : null,
+            usuarioCompletado: newCompletado ? userName : null
+          };
+        }
+        return i;
+      })
+    );
   };
 
   // Subida de foto a Firebase y actualización local
@@ -144,21 +209,13 @@ function GrupoChecklistScreen({ route, navigation }) {
       console.log('✅ Resultado del guardado:', result);
       Alert.alert(
         'Guardado exitoso',
-        'Los cambios se han guardado correctamente.',
-        [
-          { 
-            text: 'OK', 
-            onPress: () => {
-              // Navegar de vuelta y forzar actualización
-              navigation.navigate('Checklist', {
-                ...route.params,
-                forceRefresh: true,
-                timestamp: Date.now() // Para forzar recarga
-              });
-            }
-          }
-        ]
+        'Los cambios se han guardado correctamente.'
       );
+      
+      // 🔧 FIX: No recargar automáticamente para evitar perder cambios locales
+      // La recarga se hará cuando el usuario navegue de vuelta o refresque manualmente
+      console.log('� Guardado completado. Los datos se mantendrán localmente hasta la próxima navegación.');
+      // await loadGroupItems(); // ❌ COMENTADO: Causaba pérdida de datos
     } catch (error) {
       console.error('❌ Error guardando checklist:', error);
       Alert.alert(
@@ -211,37 +268,75 @@ function GrupoChecklistScreen({ route, navigation }) {
                 </ThemedText>
               )}
               
-              {/* Checkbox para marcar completado */}
+              {/* Toggle Switch compacto */}
               <TouchableOpacity
-                style={[styles.checkboxContainer, item.completado && styles.checkboxChecked]}
+                style={[styles.toggleContainerCompact, item.completado && styles.toggleContainerChecked]}
                 onPress={() => handleCheckboxChange(item.id)}
               >
-                <Text style={[styles.checkboxText, item.completado && styles.checkboxTextChecked]}>
-                  {item.completado ? '✓' : '○'} {item.completado ? 'Completado' : 'Pendiente'}
+                <View style={[styles.toggleSwitchCompact, item.completado && styles.toggleSwitchChecked]}>
+                  <Text style={[styles.toggleTextCompact, item.completado && styles.toggleTextChecked]}>
+                    {item.completado ? '✓' : '○'}
+                  </Text>
+                </View>
+                <Text style={[styles.toggleLabelCompact, item.completado && styles.toggleLabelChecked]}>
+                  {item.completado ? 'Completado' : 'Check'}
                 </Text>
+                {item.completado && item.fechapp && (
+                  <Text style={styles.toggleDateTextCompact}>
+                    {item.fechapp}
+                  </Text>
+                )}
               </TouchableOpacity>
-              {/* Observaciones box */}
+
+              {/* Observaciones box mejorada */}
               <View style={styles.observationsBox}>
-                <ThemedText type="subtitle" style={styles.observationsTitle}>Observaciones:</ThemedText>
-                <ThemedText style={styles.observationsText}>
-                  {item.observaciones || 'Sin observaciones aún.'}
-                </ThemedText>
+                <Text style={[styles.observationsTitle, { color: '#4a6cf7', fontWeight: 'bold' }]}>Observaciones:</Text>
+                {item.observaciones ? (
+                  <ScrollView 
+                    style={{ maxHeight: 150, marginBottom: 8 }} 
+                    showsVerticalScrollIndicator={true}
+                    nestedScrollEnabled={true}
+                  >
+                    {item.observaciones.split('\n').filter(obs => obs.trim() !== '').map((observacion, index) => (
+                      <View key={index} style={{ marginBottom: 6, padding: 4, backgroundColor: '#f0f0f0', borderRadius: 4 }}>
+                        <Text style={[styles.observationsText, { fontSize: 13, lineHeight: 18 }]}>
+                          {observacion.trim()}
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <Text style={styles.observationsText}>Sin observaciones aún.</Text>
+                )}
+              </View>
+
+              {/* Botones de Foto y Observaciones lado a lado */}
+              <View style={styles.buttonRow}>
                 <TouchableOpacity
-                  style={styles.observationsButton}
+                  style={styles.photoButton}
+                  onPress={() => {
+                    // Mostrar opciones: Tomar foto o Ver fotos
+                    Alert.alert(
+                      "Fotos",
+                      "¿Qué deseas hacer?",
+                      [
+                        { text: "Tomar Foto", onPress: () => {/* Aquí iría la función de tomar foto */} },
+                        { text: "Ver Fotos", onPress: () => handleViewPhotos(item.id) },
+                        { text: "Cancelar", style: "cancel" }
+                      ]
+                    );
+                  }}
+                >
+                  <Text style={styles.photoButtonText}>Foto</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={styles.observationsButtonInline}
                   onPress={() => openObservationsModal(item)}
                 >
-                  <Text style={styles.observationsButtonText}>
-                    {item.observaciones ? 'Agregar más observaciones' : 'Agregar observación'}
-                  </Text>
+                  <Text style={styles.observationsButtonInlineText}>+ Observación</Text>
                 </TouchableOpacity>
               </View>
-              <PhotoButton
-                itemId={item.id}
-                photos={itemPhotos[item.id] || []}
-                onPhotoTaken={(photoUri) => handlePhotoTaken(item.id, photoUri)}
-                onViewPhotos={() => handleViewPhotos(item.id)}
-                maxPhotos={3}
-              />
             </View>
           ))
         )}
@@ -249,27 +344,39 @@ function GrupoChecklistScreen({ route, navigation }) {
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
           <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '90%' }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 10 }}>Agregar observación</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 18 }}>Agregar observación</Text>
+              <TouchableOpacity onPress={closeObservationsModal}>
+                <Text style={{ fontSize: 24, color: '#718096', fontWeight: 'bold' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
             {selectedItem && (
-              <Text style={{ marginBottom: 10 }}>
+              <Text style={{ marginBottom: 10, color: '#4a5568' }}>
                 {selectedItem.unidad || selectedItem.descripcion || 'Item sin nombre'}
               </Text>
             )}
+            {selectedItem?.observaciones ? (
+              <View style={{ marginBottom: 10, padding: 12, backgroundColor: '#f8f9ff', borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                <Text style={{ fontWeight: 'bold', color: '#4a6cf7', marginBottom: 8 }}>Historial:</Text>
+                <Text style={{ color: '#4a5568', lineHeight: 20 }}>{selectedItem.observaciones}</Text>
+              </View>
+            ) : null}
+            <Text style={{ fontWeight: 'bold', color: '#4a6cf7', marginBottom: 8 }}>Nueva observación:</Text>
             <TextInput
-              style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, marginBottom: 10 }}
-              placeholder="Escribe tu observación..."
+              style={{ borderWidth: 2, borderColor: '#4a6cf7', borderRadius: 8, padding: 12, marginBottom: 10, minHeight: 80, backgroundColor: '#fff' }}
+              placeholder="Escriba su observación aquí..."
               value={newObservation}
               onChangeText={setNewObservation}
               multiline
+              numberOfLines={3}
             />
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-              <TouchableOpacity onPress={closeObservationsModal} style={{ marginRight: 16 }}>
-                <Text style={{ color: '#4a6cf7', fontWeight: 'bold' }}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={saveObservations}>
-                <Text style={{ color: '#ff6b35', fontWeight: 'bold' }}>Guardar</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={{ backgroundColor: '#4a6cf7', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 10 }}
+              onPress={addObservation}
+              disabled={!newObservation.trim()}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Agregar observación</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -377,6 +484,178 @@ const styles = StyleSheet.create({
   checkboxTextChecked: {
     color: '#38a169',
     fontWeight: 'bold',
+  },
+  checkboxDateText: {
+    fontSize: 12,
+    color: '#4a5568',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  // Estilos para toggle/pestillo
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9ff',
+    borderRadius: 25,
+    padding: 4,
+    marginVertical: 8,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    minHeight: 50,
+  },
+  toggleContainerChecked: {
+    backgroundColor: '#e6ffed',
+    borderColor: '#38a169',
+  },
+  toggleSwitch: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  toggleSwitchChecked: {
+    backgroundColor: '#38a169',
+  },
+  toggleText: {
+    fontSize: 18,
+    color: '#a0aec0',
+    fontWeight: 'bold',
+  },
+  toggleTextChecked: {
+    color: '#fff',
+  },
+  toggleLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: '#4a5568',
+    fontWeight: '500',
+  },
+  toggleLabelChecked: {
+    color: '#38a169',
+    fontWeight: 'bold',
+  },
+  toggleDateText: {
+    fontSize: 11,
+    color: '#4a5568',
+    fontStyle: 'italic',
+    marginLeft: 8,
+  },
+  // Estilos compactos
+  toggleContainerCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9ff',
+    borderRadius: 15,
+    padding: 4,
+    marginVertical: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minHeight: 26,
+    alignSelf: 'flex-end',
+    maxWidth: '50%',
+  },
+  toggleSwitchCompact: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  toggleTextCompact: {
+    fontSize: 10,
+    color: '#a0aec0',
+    fontWeight: 'bold',
+  },
+  toggleLabelCompact: {
+    fontSize: 12,
+    color: '#4a5568',
+    fontWeight: '500',
+  },
+  toggleDateTextCompact: {
+    fontSize: 9,
+    color: '#4a5568',
+    fontStyle: 'italic',
+    marginLeft: 4,
+  },
+  compactButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 8,
+    paddingHorizontal: 20,
+  },
+  compactButton: {
+    backgroundColor: '#f8f9ff',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  compactButtonText: {
+    fontSize: 18,
+  },
+  observationsBoxCompact: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  observationsTextCompact: {
+    fontSize: 12,
+    color: '#4a5568',
+    lineHeight: 16,
+    marginBottom: 2,
+  },
+  observationsButtonCompact: {
+    backgroundColor: '#4a6cf7',
+    borderRadius: 6,
+    padding: 8,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  observationsButtonTextCompact: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 8,
+    gap: 8,
+  },
+  photoButton: {
+    flex: 1,
+    backgroundColor: '#ff6b35',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+  },
+  photoButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  observationsButtonInline: {
+    flex: 1,
+    backgroundColor: '#4a6cf7',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+  },
+  observationsButtonInlineText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   saveButton: {
     backgroundColor: '#ff6b35', // Naranja brillante más llamativo

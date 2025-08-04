@@ -328,12 +328,23 @@ class ApiService {
         }
         
         // Mapear las columnas según la estructura de Google Sheets
-        // Basado en el header: ["","UNIDAD","","","","DESCRIPCIÓN","","","","","","","S/CONTRATO","","Estadoapp","fechapp","Observaciones",...]
+        // 🔧 ACTUALIZADO: Columna P (row[15]) = Observaciones según reporte del usuario
         const unidad = row[1] ? String(row[1]).trim() : '';
         const descripcion = row[5] ? String(row[5]).trim() : '';
         const s_contrato = row[12] ? String(row[12]).trim() : '';
-        const fechapp = row[15] ? String(row[15]).trim() : '';
-        const observaciones = row[16] ? String(row[16]).trim() : '';
+        const fechapp = row[14] ? String(row[14]).trim() : ''; // Intentar columna O para fechapp
+        const observaciones = row[15] ? String(row[15]).trim() : ''; // 🔧 FIX: Columna P = row[15]
+        
+        // 🔍 DEBUG: Verificar todas las columnas para encontrar observaciones
+        console.log(`🔍 [DEBUG] Fila ${index} - unidad: "${unidad}", descripcion: "${descripcion}"`);
+        console.log(`🔍 [DEBUG] Columnas importantes:`, {
+          col12_s_contrato: row[12],
+          col13: row[13],
+          col14_fechapp: row[14], // Columna O
+          col15_observaciones: row[15], // Columna P
+          col16: row[16],
+          col17: row[17]
+        });
         
         // Determinar si está completado
         const isCompleted = s_contrato === '√' || s_contrato === 'true';
@@ -345,6 +356,8 @@ class ApiService {
           unidad,
           descripcion,
           s_contrato,
+          observaciones: observaciones || 'SIN OBSERVACIONES',
+          fechapp,
           isCompleted,
           rowIndex: index + 1 // Índice de fila real
         });
@@ -453,6 +466,8 @@ class ApiService {
       // - Si no está marcado pero tiene observaciones → enviar '' (mantener estado actual)
       const s_contrato = item.completado ? '√' : ''; // Solo marcar explícitamente, no desmarcar
       const fechapp = item.completado ? currentDate : '';
+      
+      console.log(`📝 Item ${item.unidad || item.descripcion}: observaciones="${item.observaciones || 'VACÍAS'}" rowIndex=${realRowIndex}`);
       
       return {
         rowIndex: realRowIndex,
