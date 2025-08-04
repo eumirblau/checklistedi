@@ -1,12 +1,38 @@
 import React from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import ApiService from '../../services/ApiService';
-import { FirebasePhotoService } from '../../services/FirebasePhotoService';
+import PhotoButton from '../components/PhotoButton';
 
 function GrupoChecklistScreen({ route, navigation }) {
   const params = route?.params || {};
   const grupo = params.grupo || 'Sin grupo';
+  // Eliminar foto de Firebase y del estado local
+  const handleDeletePhoto = async (itemId, photo) => {
+    try {
+      // Eliminar de Firebase
+      const ok = await import('../services/CloudPhotoService').then(mod => mod.CloudPhotoService.deletePhotoFromFirebase({
+        jefeGrupo: usuario?.nombre || usuario || 'sin-jefe',
+        obra: obraNombre || 'sin-obra',
+        instalacion: instalacionNombre || 'sin-instalacion',
+        itemId,
+        fecha: new Date().toISOString().split('T')[0],
+        fileName: photo.fileName || ''
+      }));
+      if (!ok) {
+        Alert.alert('Error', 'No se pudo eliminar la foto de Firebase');
+        return;
+      }
+      // Eliminar del estado local
+      setItemPhotos(prev => ({
+        ...prev,
+        [itemId]: (prev[itemId] || []).filter(p => p.id !== photo.id)
+      }));
+      Alert.alert('Foto eliminada', 'La foto fue eliminada correctamente.');
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo eliminar la foto: ' + (error instanceof Error ? error.message : String(error)));
+    }
+  };
   const [items, setItems] = React.useState(Array.isArray(params.items) ? params.items : []);
   const [itemPhotos, setItemPhotos] = React.useState(params.itemPhotos || {});
   const [selectedItem, setSelectedItem] = React.useState(null);
@@ -139,28 +165,26 @@ function GrupoChecklistScreen({ route, navigation }) {
   };
 
   // Subida de foto a Firebase y actualización local
-  const handlePhotoTaken = async (itemId, photoUri) => {
-    try {
-      const result = await FirebasePhotoService.uploadPhoto(photoUri, itemId);
-      if (result.success && result.downloadURL) {
-        const photoMetadata = {
-          id: `photo_${Date.now()}`,
-          url: result.downloadURL,
-          path: result.uploadPath || '',
-          uploadedAt: new Date().toISOString(),
-          fileName: result.fileName || ''
-        };
-        setItemPhotos(prevPhotos => ({
-          ...prevPhotos,
-          [itemId]: [...(prevPhotos[itemId] || []), photoMetadata]
-        }));
-        Alert.alert('Foto subida', 'La foto se subió correctamente a Firebase.');
-      } else {
-        Alert.alert('Error', 'No se pudo subir la foto: ' + (result.error || 'Error desconocido'));
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Error inesperado al subir la foto: ' + (error instanceof Error ? error.message : String(error)));
+  // Ahora handlePhotoTaken recibe la URL pública directamente desde PhotoButton
+  const handlePhotoTaken = (itemId, publicUrl) => {
+    console.log('[PHOTO] handlePhotoTaken itemId:', itemId);
+    console.log('[PHOTO] handlePhotoTaken publicUrl:', publicUrl);
+    if (!publicUrl || typeof publicUrl !== 'string' || !publicUrl.startsWith('http')) {
+      Alert.alert('Error', 'No se recibió una URL válida de la foto.');
+      return;
     }
+    const photoMetadata = {
+      id: `photo_${Date.now()}`,
+      url: publicUrl,
+      path: '',
+      uploadedAt: new Date().toISOString(),
+      fileName: ''
+    };
+    setItemPhotos(prevPhotos => ({
+      ...prevPhotos,
+      [itemId]: [...(prevPhotos[itemId] || []), photoMetadata]
+    }));
+    Alert.alert('Foto subida', 'La foto se subió correctamente a Firebase.');
   };
 
   // Visualización de fotos
@@ -312,23 +336,18 @@ function GrupoChecklistScreen({ route, navigation }) {
 
               {/* Botones de Foto y Observaciones lado a lado */}
               <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={styles.photoButton}
-                  onPress={() => {
-                    // Mostrar opciones: Tomar foto o Ver fotos
-                    Alert.alert(
-                      "Fotos",
-                      "¿Qué deseas hacer?",
-                      [
-                        { text: "Tomar Foto", onPress: () => {/* Aquí iría la función de tomar foto */} },
-                        { text: "Ver Fotos", onPress: () => handleViewPhotos(item.id) },
-                        { text: "Cancelar", style: "cancel" }
-                      ]
-                    );
-                  }}
-                >
-                  <Text style={styles.photoButtonText}>Foto</Text>
-                </TouchableOpacity>
+                <PhotoButton
+                  itemId={item.id}
+                  photos={itemPhotos[item.id] || []}
+                  onPhotoTaken={(url) => handlePhotoTaken(item.id, url)}
+                  onViewPhotos={() => handleViewPhotos(item.id)}
+                  onDeletePhoto={(photo) => handleDeletePhoto(item.id, photo)}
+                  maxPhotos={5}
+                  jefeGrupo={usuario?.nombre || usuario || 'sin-jefe'}
+                  obra={obraNombre || 'sin-obra'}
+                  instalacion={instalacionNombre || 'sin-instalacion'}
+                  fecha={new Date().toISOString().split('T')[0]}
+                />
                 
                 <TouchableOpacity
                   style={styles.observationsButtonInline}
@@ -337,6 +356,22 @@ function GrupoChecklistScreen({ route, navigation }) {
                   <Text style={styles.observationsButtonInlineText}>+ Observación</Text>
                 </TouchableOpacity>
               </View>
+              {/* Galería de fotos */}
+              <ScrollView horizontal style={{ marginTop: 8, marginBottom: 8 }} showsHorizontalScrollIndicator={false}>
+                {(itemPhotos[item.id] && itemPhotos[item.id].length > 0) ? (
+                  itemPhotos[item.id].map((photo, idx) => (
+                    <View key={photo.id || idx} style={{ marginRight: 8 }}>
+                      <Image
+                        source={{ uri: photo.url }}
+                        style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: '#eee' }}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  ))
+                ) : (
+                  <Text style={{ color: '#888', fontSize: 13, marginLeft: 4 }}>Sin fotos aún.</Text>
+                )}
+              </ScrollView>
             </View>
           ))
         )}

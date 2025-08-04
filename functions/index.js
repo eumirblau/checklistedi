@@ -1,41 +1,32 @@
+// Archivo principal de Cloud Functions para Firebase
+// Solo debe contener código backend, no Expo/React Native
 /**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * Importaciones principales
  */
 
-const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
-const logger = require("firebase-functions/logger");
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { Buffer } = require('buffer');
+const { google } = require('googleapis');
+const path = require('path');
+const fs = require('fs');
+const logger = require("firebase-functions/logger");
+const { setGlobalOptions } = require("firebase-functions");
+const { onRequest } = require("firebase-functions/https");
 admin.initializeApp();
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
+// Opciones globales para limitar instancias
 setGlobalOptions({ maxInstances: 10 });
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
-
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+// =====================
+// Funciones de Storage
+// =====================
 
 exports.uploadPhotoBase64 = functions.https.onRequest(async (req, res) => {
+// ...existing code...
+// =====================
+// Funciones de Google Sheets
+// =====================
   try {
     const { base64, fileName, folder } = req.body;
     if (!base64 || !fileName) {
@@ -58,6 +49,7 @@ exports.uploadPhotoBase64 = functions.https.onRequest(async (req, res) => {
 });
 
 exports.getInstalacionesDeObra = functions.https.onRequest(async (req, res) => {
+// ...existing code...
   res.set('Access-Control-Allow-Origin', '*');
   const { spreadsheetId: spreadsheetIdOriginal } = req.query;
   const spreadsheetId = MAPEO_NOMBRES_A_IDS[spreadsheetIdOriginal] || spreadsheetIdOriginal;
@@ -97,6 +89,7 @@ exports.getInstalacionesDeObra = functions.https.onRequest(async (req, res) => {
 });
 
 exports.getItemsDeChecklist = functions.https.onRequest(async (req, res) => {
+// ...existing code...
   res.set('Access-Control-Allow-Origin', '*');
   const { spreadsheetId: spreadsheetIdOriginal, pestana } = req.query;
   const spreadsheetId = MAPEO_NOMBRES_A_IDS[spreadsheetIdOriginal] || spreadsheetIdOriginal;
@@ -120,6 +113,7 @@ exports.getItemsDeChecklist = functions.https.onRequest(async (req, res) => {
 });
 
 exports.getPestanasDeObra = functions.https.onRequest(async (req, res) => {
+// ...existing code...
   res.set('Access-Control-Allow-Origin', '*');
   const { spreadsheetId: spreadsheetIdOriginal } = req.query;
   const spreadsheetId = MAPEO_NOMBRES_A_IDS[spreadsheetIdOriginal] || spreadsheetIdOriginal;
@@ -151,6 +145,7 @@ exports.getPestanasDeObra = functions.https.onRequest(async (req, res) => {
 });
 
 exports.getJefesDeGrupo = functions.https.onRequest((req, res) => {
+// ...existing code...
   res.set('Access-Control-Allow-Origin', '*');
   const spreadsheetId = MAPEO_NOMBRES_A_IDS['JEFES DE GRUPO'] || '1UUU7rq-mjx4GxoE_tR7F8tGSyue0EyC0WimZ70UfitQ';
   const auth = new google.auth.GoogleAuth({
@@ -183,31 +178,66 @@ exports.getJefesDeGrupo = functions.https.onRequest((req, res) => {
 });
 
 exports.getObrasPorJefe = functions.https.onRequest((req, res) => {
+// ...existing code...
   res.set('Access-Control-Allow-Origin', '*');
   const { jefe } = req.query;
-  const spreadsheetId = MAPEO_NOMBRES_A_IDS['JEFES DE GRUPO'] || '1UUU7rq-mjx4GxoE_tR7F8tGSyue0EyC0WimZ70UfitQ';
+  if (!jefe) return res.status(400).json({ error: 'Falta jefe' });
+  const hojaMaestraId = '1UUU7rq-mjx4GxoE_tR7F8tGSyue0EyC0WimZ70UfitQ';
   const auth = new google.auth.GoogleAuth({
     keyFile: path.join(__dirname, 'service-account.json'),
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
   });
   const sheets = google.sheets({ version: 'v4', auth });
   sheets.spreadsheets.values.get({
-    spreadsheetId,
+    spreadsheetId: hojaMaestraId,
     range: "Hoja1!A2:D",
   }).then(result => {
-    // Filtrar obras por jefe
-    const obras = (result.data.values || []).filter(row => row[0] === jefe);
+    // Filtrar obras por jefe y devolver nombre de obra (columna C) y su ID/URL (columna D)
+    const obras = (result.data.values || [])
+      .filter(row => row[0] === jefe)
+      .map(row => ({ nombreObra: row[2], idObra: row[3] }));
     res.json({ obras });
   }).catch(error => {
     res.status(500).json({ error: error.message });
   });
 });
 
+// =====================
+// Función para listar fotos en una carpeta de Firebase Storage
+// =====================
+/**
+ * Cloud Function principal para galería de fotos
+ * Debe aparecer como 'listphotosinfolder' en Firebase Console y usarse en el frontend
+ */
+exports.listphotosinfolder = functions.https.onRequest(async (req, res) => {
+  try {
+    const { folder } = req.body;
+    if (!folder) return res.status(400).json({ error: 'Falta folder' });
 
-const { google } = require('googleapis');
-const path = require('path');
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({ prefix: folder + '/' });
+    const photos = await Promise.all(files.map(async file => {
+      const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-01-2100'
+      });
+      return {
+        fileName: file.name.split('/').pop(),
+        url,
+        uploadedAt: file.metadata.timeCreated
+      };
+    }));
+
+    res.json({ photos });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================
+// Utilidades y constantes
+// =====================
 const keyFilePath = path.resolve(__dirname, 'service-account.json');
-const fs = require('fs');
 if (!fs.existsSync(keyFilePath)) {
   console.error('❌ El archivo NO existe en:', keyFilePath);
 } else {
@@ -218,7 +248,7 @@ const auth = new google.auth.GoogleAuth({
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 
-// MAPEO DE NOMBRES DESCRIPTIVOS A IDS REALES DE GOOGLE SHEETS - ACTUALIZADO
+// Mapeo de nombres descriptivos a IDs reales de Google Sheets
 const MAPEO_NOMBRES_A_IDS = {
   "Centro Los Mayores Los Almendros": "15UNDktnDzB_8lHkxx4QjKYRfABX4_M2wjCXx61Wh474",
   "San Blas pabellón": "1__5J8ykBjRvgFYW3d4i0vCyM6ukZ4Ax4Pf21N2Le7tw",
@@ -257,6 +287,9 @@ function columnIndexToLetter(columnIndex) {
   return letter;
 }
 
+// =====================
+// Función para guardar checks
+// =====================
 exports.guardarChecks = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -369,5 +402,3 @@ exports.guardarChecks = functions.https.onRequest(async (req, res) => {
     }
   }
 });
-
-const serviceAccount = require('./service-account.json');

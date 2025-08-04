@@ -1,14 +1,14 @@
 import React from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    RefreshControl,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import ApiService from '../../services/ApiService';
 import { JefeDeGrupo } from '../../types';
@@ -32,7 +32,15 @@ const JefesScreen = ({ navigation, route }: Props) => {
     try {
       setLoading(true);
       const data = await ApiService.getJefesDeGrupo();
-      setJefes(data);
+      // Filtrar jefes con obras reales
+      const jefesConObras: JefeDeGrupo[] = [];
+      for (const jefe of data) {
+        const obras = await ApiService.getObrasPorJefe(jefe.nombre);
+        if (obras && obras.length > 0) {
+          jefesConObras.push(jefe);
+        }
+      }
+      setJefes(jefesConObras);
     } catch (error) {
       Alert.alert(
         'Error',
@@ -58,7 +66,7 @@ const JefesScreen = ({ navigation, route }: Props) => {
     navigation.navigate('Obras', {
       jefeId: jefe.nombre,
       jefeNombre: jefe.nombre,
-      usuario: usuario,
+      usuario: jefe, // Se pasa el jefe seleccionado como usuario
     });
   };
 

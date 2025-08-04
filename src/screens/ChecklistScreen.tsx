@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Text as RNText,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Text as RNText,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from 'react-native';
+// ...existing code...
 // ...ya importados arriba, eliminar duplicado
 import ApiService from '../../services/ApiService';
 import { ChecklistItem } from '../../types';
@@ -41,6 +42,8 @@ interface Props {
 
 const ChecklistScreen = ({ navigation, route }: Props) => {
   const { instalacionId, instalacionNombre, spreadsheetId, usuario, obraNombre, obraId, jefeNombre } = route.params;
+
+  // ...existing code...
 
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +94,8 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
   useEffect(() => {
     loadChecklist();
   }, [loadChecklist, instalacionNombre, navigation, route.params?.forceRefresh, route.params?.timestamp]);
+
+  // ...existing code...
 
   // ✅ FIX: Recargar cuando volvemos de GrupoChecklistScreen
   useEffect(() => {
@@ -150,6 +155,7 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
   }
   return (
     <View style={[styles.container, styles.gradientBackground]}>
+      {/* Aquí NO debe haber galería de fotos, solo navegación a GrupoChecklistScreen */}
       <StatusBar barStyle="light-content" backgroundColor="#4a6cf7" />
       <View style={styles.headerContainer}>
         <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>

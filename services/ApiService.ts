@@ -550,23 +550,23 @@ class ApiService {
     console.log('📊 [ApiService.getJefesDeGrupo] Iniciando obtención de jefes...');
     console.log('📊 [ApiService.getJefesDeGrupo] URL base:', BASE_URL);
     console.log('📊 [ApiService.getJefesDeGrupo] URL completa:', `${BASE_URL}/getJefesDeGrupo`);
-    
-    // Si está en modo offline, usar datos locales
+
+    // Si está en modo offline, usar datos locales y marcar el flag
     if (this.useOfflineMode) {
       console.log('📱 [ApiService.getJefesDeGrupo] Usando datos offline para jefes');
-      return this.datosOffline.jefes;
+      return Object.assign([], this.datosOffline.jefes, { isOffline: true });
     }
-    
+
     try {
       console.log('🌐 [ApiService.getJefesDeGrupo] Intentando conectar a la API...');
-      
+
       // Crear AbortController para timeout personalizado
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         console.log('⏰ [ApiService.getJefesDeGrupo] Timeout de 8 segundos alcanzado');
         controller.abort();
       }, 8000); // 8 segundos timeout
-      
+
       const response = await fetch(`${BASE_URL}/getJefesDeGrupo`, {
         method: 'GET',
         headers: {
@@ -574,40 +574,41 @@ class ApiService {
         },
         signal: controller.signal, // Agregar signal para timeout
       });
-      
+
       clearTimeout(timeoutId); // Limpiar timeout si la respuesta llega a tiempo
       console.log('📡 [ApiService.getJefesDeGrupo] Respuesta recibida. Status:', response.status, 'OK:', response.ok);
-      
+
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
-      
+
       // La API devuelve un objeto con propiedad 'jefes': {"jefes": [["JEFES DE GRUPO"], ["Monserrat"], ...]}
       const data = await response.json();
       console.log('✅ [ApiService.getJefesDeGrupo] Jefes obtenidos de Google Sheets (raw):', data);
-      
+
       // Extraer el array de jefes del objeto respuesta
       const jefesRaw = data.jefes;
       if (!Array.isArray(jefesRaw) || jefesRaw.length === 0) {
         throw new Error('No se pudieron obtener los jefes de grupo');
       }
-      
+
       // Filtrar el header y obtener nombres únicos de jefes
       const nombresJefes = jefesRaw
         .filter(row => Array.isArray(row) && row.length > 0 && row[0] !== 'JEFES DE GRUPO')
         .map(row => row[0])
         .filter((nombre, index, array) => array.indexOf(nombre) === index);
-        
+
       // Si son strings simples, crear objetos básicos sin email artificial
       const jefes = nombresJefes.map((nombre, index) => ({
         id: (index + 1).toString(),
         nombre: nombre,
         email: '', // Sin email artificial, usar dato real de la hoja si está disponible
       }));
-      
+
       console.log('🔄 [ApiService.getJefesDeGrupo] Jefes procesados desde hoja maestra:', jefes);
       console.log('✅ [ApiService.getJefesDeGrupo] Retornando', jefes.length, 'jefes de la API real');
-      return jefes;
+      // Retornar solo jefes reales y marcar el flag offline en false
+      return Object.assign([], jefes, { isOffline: false });
     } catch (error) {
       console.warn('⚠️ [ApiService.getJefesDeGrupo] Error conectando con Google Sheets:', error);
       console.warn('⚠️ [ApiService.getJefesDeGrupo] Tipo de error:', typeof error, error?.constructor?.name);
@@ -616,10 +617,10 @@ class ApiService {
         console.warn('⚠️ [ApiService.getJefesDeGrupo] Stack:', error.stack);
       }
       console.log('📱 [ApiService.getJefesDeGrupo] Cambiando a modo offline temporal');
-      
-      // Usar datos offline como fallback
+
+      // Usar datos offline como fallback y marcar el flag
       console.log('📱 [ApiService.getJefesDeGrupo] Retornando', this.datosOffline.jefes.length, 'jefes offline');
-      return this.datosOffline.jefes;
+      return Object.assign([], this.datosOffline.jefes, { isOffline: true });
     }
   }  async getObrasPorJefe(jefeNombre: string): Promise<Obra[]> {
     console.log('📊 [ApiService.getObrasPorJefe] Iniciando obtención de obras para jefe:', jefeNombre);

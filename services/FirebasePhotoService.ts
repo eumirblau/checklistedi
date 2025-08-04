@@ -1,4 +1,4 @@
-import { deleteObject, getDownloadURL, listAll, ref, uploadString } from 'firebase/storage';
+import { deleteObject, getDownloadURL, listAll, ref } from 'firebase/storage';
 import { storage } from '../config/firebase';
 // Eliminado: import GetRealPath from 'react-native-get-real-path';
 
@@ -31,20 +31,37 @@ export class FirebasePhotoService {
   /**
    * Subir una foto a Firebase Storage (método principal)
    */
+  /**
+   * Subir una foto a Firebase Storage (método principal)
+   * @param uri URI local de la foto
+   * @param jefeNombre Nombre del jefe de grupo
+   * @param obraNombre Nombre de la obra
+   * @param instalacionNombre Nombre de la instalación
+   * @param checklistNombre Nombre del checklist
+   * @param fileName Nombre de archivo opcional
+   */
   static async uploadPhoto(
-    uri: string, 
-    itemId: string, 
+    uri: string,
+    jefeNombre: string,
+    obraNombre: string,
+    instalacionNombre: string,
+    checklistNombre: string,
     fileName?: string
   ): Promise<PhotoUploadResult> {
     try {
       console.log('🔥 [FIREBASE] Iniciando subida de foto...');
       console.log('📁 URI:', uri);
-      console.log('🆔 Item ID:', itemId);
+      console.log('👷 Jefe:', jefeNombre);
+      console.log('�️ Obra:', obraNombre);
+      console.log('🔧 Instalación:', instalacionNombre);
+      console.log('📋 Checklist:', checklistNombre);
 
       // Generar nombre de archivo único
       const timestamp = Date.now();
-      const finalFileName = fileName || `photo_${itemId}_${timestamp}.jpg`;
-      const uploadPath = `${this.STORAGE_PATH}/${itemId}/${finalFileName}`;
+      const finalFileName = fileName || `photo_${timestamp}.jpg`;
+      // Limpiar nombres para evitar caracteres problemáticos
+      const limpiar = (str: string) => str.replace(/[\\/:*?"<>|]/g, '').trim();
+      const uploadPath = `${limpiar(jefeNombre)}/${limpiar(obraNombre)}/${limpiar(instalacionNombre)}/${limpiar(checklistNombre)}/${finalFileName}`;
 
       console.log('📤 Subiendo a:', uploadPath);
 
@@ -52,25 +69,20 @@ export class FirebasePhotoService {
       const storageRef = ref(storage, uploadPath);
 
       // Leer el archivo local como base64 y convertirlo a un buffer
-
       let filePath = uri;
       let mimeType = 'image/jpeg';
       let fileBytes: string;
+      console.log('[FIREBASE] uploadPhoto filePath:', filePath);
+      if (!filePath.startsWith('file://')) {
+        console.error('❌ [FIREBASE] La URI no es local (file://), no se puede subir en Expo. URI:', filePath);
+        return {
+          success: false,
+          error: 'La URI no es local (file://), no se puede subir en Expo. URI: ' + filePath
+        };
+      }
       try {
-        if (filePath.startsWith('file://')) {
-          const fs = await import('expo-file-system');
-          fileBytes = await fs.readAsStringAsync(filePath, { encoding: fs.EncodingType.Base64 });
-        } else {
-          // Si es remota, descarga y convierte a base64
-          const response = await fetch(filePath);
-          const blob = await response.blob();
-          fileBytes = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        }
+        const fs = await import('expo-file-system');
+        fileBytes = await fs.readAsStringAsync(filePath, { encoding: fs.EncodingType.Base64 });
       } catch (readError) {
         console.error('❌ [FIREBASE] Error leyendo archivo para subir:', readError);
         return {
@@ -79,7 +91,8 @@ export class FirebasePhotoService {
         };
       }
       try {
-        await uploadString(storageRef, fileBytes, 'base64', { contentType: mimeType });
+        // @ts-ignore
+        await storageRef.putString(fileBytes, 'base64', { contentType: mimeType });
         // Obtener URL de descarga
         const downloadURL = await getDownloadURL(storageRef);
         console.log('✅ [FIREBASE] Foto subida exitosamente');
@@ -195,8 +208,16 @@ export class FirebasePhotoService {
     try {
       console.log('🔄 [LEGACY] Iniciando subida a Firebase:', { imageUri, fileName });
       
-      // Usar el nuevo método uploadPhoto
-      const result = await this.uploadPhoto(imageUri, 'legacy', fileName);
+      // Usar el nuevo método uploadPhoto con argumentos requeridos
+      // Los valores legacy se asignan como 'legacy' para jefe, obra, instalación y checklist
+      const result = await this.uploadPhoto(
+        imageUri,
+        'legacy', // jefeNombre
+        'legacy', // obraNombre
+        'legacy', // instalacionNombre
+        'legacy', // checklistNombre
+        fileName
+      );
       
       if (result.success && result.downloadURL) {
         console.log('✅ [LEGACY] Imagen subida exitosamente:', result.downloadURL);
