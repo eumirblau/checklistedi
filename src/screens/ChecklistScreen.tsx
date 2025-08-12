@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -43,11 +43,11 @@ interface Props {
 const ChecklistScreen = ({ navigation, route }: Props) => {
   const { instalacionId, instalacionNombre, spreadsheetId, usuario, obraNombre, obraId, jefeNombre } = route.params;
 
-  // ...existing code...
-
-  const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [grupos, setGrupos] = useState<{ encabezado: string, itemCount: number }[]>([]);
+  const [items, setItems] = useState<ChecklistItem[]>([]); // ✅ AGREGADO: Estado para items
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);  const handleGoBack = () => {
+
+  const handleGoBack = () => {
     navigation.navigate('Instalaciones', {
       obraId,
       obraNombre,
@@ -55,63 +55,77 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
       usuario,
       spreadsheetId,
     });
-  };  const loadChecklist = useCallback(async () => {    try {
+  };
+
+  // ✅ APK ORIGINAL: Función SIMPLIFICADA - Solo cargar datos para obtener grupos/encabezados
+  const loadGrupos = async () => {
+    try {
       setLoading(true);
-        const data = await ApiService.getItemsDeChecklist(obraNombre, instalacionNombre);
+      console.log('🔄 [APK ORIGINAL] ChecklistScreen cargando datos desde Google Sheets...');
       
-      console.log('DATOS RECIBIDOS:', data?.length || 0, 'items');
+      // Obtener datos solo para extraer los grupos
+      const data = await ApiService.getItemsDeChecklist(spreadsheetId, instalacionNombre);
       
-      // Validación y limpieza de datos
-      const validatedData = (data || []).map(item => ({
-        ...item,
-        id: item.id || Math.random().toString(),
-        unidad: item.unidad ? String(item.unidad).trim() : '',
-        descripcion: item.descripcion ? String(item.descripcion).trim() : '',
-        observaciones: item.observaciones ? String(item.observaciones).trim() : '',
-        completado: Boolean(item.completado)
-      })).filter(item => {
+      console.log('📊 DATOS RECIBIDOS para grupos:', data?.length || 0, 'items');
+      
+      // Filtrar "no check" y procesar grupos
+      const validatedData = (data || []).filter(item => {
         // Filtramos items vacíos
         if (!item.unidad && !item.descripcion) return false;
         
         // Filtramos items que contienen "no check" en la descripción
-        if (item.descripcion.toLowerCase().includes('no check')) return false;
+        if (item.descripcion && item.descripcion.toLowerCase().includes('no check')) return false;
 
         return true;
       });
 
-      console.log('DATOS FILTRADOS:', validatedData?.length || 0, 'items');
+      // Guardar items validados para cálculos de progreso
       setItems(validatedData);
+
+      // Agrupar por encabezados para mostrar solo la lista de grupos
+      const gruposDetectados = agruparPorEncabezados(validatedData);
+      const gruposConConteo = gruposDetectados.map(grupo => ({
+        encabezado: grupo.encabezado,
+        itemCount: grupo.items.length
+      }));
+      
+      console.log('✅ GRUPOS DETECTADOS:', gruposConConteo);
+      setGrupos(gruposConConteo);
     } catch (error) {
       Alert.alert(
         'Error',
-        `No se pudieron cargar los items: ${error instanceof Error ? error.message : String(error)}`,
-        [{ text: 'Reintentar', onPress: loadChecklist }]
+        `No se pudieron cargar los grupos: ${error instanceof Error ? error.message : String(error)}`,
+        [{ text: 'Reintentar', onPress: loadGrupos }]
       );
     } finally {
       setLoading(false);
     }
-  }, [instalacionId, instalacionNombre, obraNombre]);
+  };
+
+  // ✅ APK ORIGINAL: Solo cargar datos la primera vez, NO refrescar automáticamente
   useEffect(() => {
-    loadChecklist();
-  }, [loadChecklist, instalacionNombre, navigation, route.params?.forceRefresh, route.params?.timestamp]);
+    console.log('🔄 ChecklistScreen montado - cargando datos SOLO la primera vez...');
+    loadGrupos();
+  }, []); // Sin dependencias - solo se ejecuta una vez al montar
 
-  // ...existing code...
-
-  // ✅ FIX: Recargar cuando volvemos de GrupoChecklistScreen
+  // ✅ APK ORIGINAL: Listener para actualizar progreso cuando volvemos de GrupoChecklistScreen
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('🔄 ChecklistScreen enfocado - recargando datos...');
-      loadChecklist();
+      console.log('🔄 ChecklistScreen focused - recalculando progreso...');
+      // Solo recalcular progreso si ya tenemos datos, NO recargar desde API
+      if (items.length > 0) {
+        const gruposActualizados = agruparPorEncabezados(items);
+        const gruposConConteo = gruposActualizados.map(grupo => ({
+          encabezado: grupo.encabezado,
+          itemCount: grupo.items.length
+        }));
+        setGrupos(gruposConConteo);
+        console.log('✅ Progreso recalculado sin recargar datos');
+      }
     });
-    
-    return unsubscribe;
-  }, [navigation, loadChecklist]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadChecklist();
-    setRefreshing(false);
-  };
+    return unsubscribe;
+  }, [navigation, items]);
 
   // Agrupación de items por encabezados detectados
   function agruparPorEncabezados(items: ChecklistItem[]) {

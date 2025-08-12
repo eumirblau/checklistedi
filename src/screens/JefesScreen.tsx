@@ -1,14 +1,14 @@
 import React from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  RefreshControl,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    RefreshControl,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import ApiService from '../../services/ApiService';
 import { JefeDeGrupo } from '../../types';
@@ -66,7 +66,7 @@ const JefesScreen = ({ navigation, route }: Props) => {
     navigation.navigate('Obras', {
       jefeId: jefe.nombre,
       jefeNombre: jefe.nombre,
-      usuario: jefe, // Se pasa el jefe seleccionado como usuario
+      usuario: usuario, // ✅ CORREGIDO: Mantener el usuario real del login, no el jefe
     });
   };
 

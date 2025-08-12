@@ -1,38 +1,38 @@
-interface ChecklistItem {
+export interface ChecklistItem {
   id: string;
   unidad: string;
   descripcion: string;
   observaciones: string;
   completado: boolean;
-  fechaCompletado?: string;
-  rowIndex?: number; // Índice de fila en Google Sheets
+  fechapp?: string;
+  rowIndex?: number;
 }
 
 class ApiService {
   private baseUrl: string;
 
   constructor() {
-    // URL base de la API de Google Cloud Functions
+    // URL base de la API de Google Cloud Functions (nuestra API actual que funciona)
     this.baseUrl = 'https://us-central1-checklistedhinor.cloudfunctions.net';
   }
 
   /**
    * Obtiene los items del checklist para una instalación específica
-   * Basado en la implementación del APK original
+   * Basado en la implementación del APK original pero adaptado para nuestra API actual
    */
   async getItemsDeChecklist(obraIdOrName: string, instalacionNombre: string): Promise<ChecklistItem[]> {
     try {
       console.log(`[ApiService.getItemsDeChecklist] Called with obraIdOrName: ${obraIdOrName}, instalacion: ${instalacionNombre}`);
       
-      // Determinar nombre real de la pestaña
-      let actualSheetName = instalacionNombre;
-      if (instalacionNombre.includes('|')) {
-        actualSheetName = instalacionNombre.split('|')[0].trim();
-        console.log(`[ApiService.getItemsDeChecklist] Extracted sheet name '${actualSheetName}' from composite ID '${instalacionNombre}'`);
-      }
+      // Usar directamente el nombre de la instalación
+      const actualSheetName = instalacionNombre;
+      console.log(`[ApiService.getItemsDeChecklist] Using sheet name: ${actualSheetName}`);
       
-      // URL del endpoint correcta
-      const response = await fetch(`${this.baseUrl}/getItemsDeChecklist?spreadsheetId=${obraIdOrName}&pestana=${encodeURIComponent(actualSheetName)}`, {
+      // URL del endpoint con nuestros parámetros actuales
+      const url = `${this.baseUrl}/getItemsDeChecklist?spreadsheetId=${encodeURIComponent(obraIdOrName)}&pestana=${encodeURIComponent(actualSheetName)}`;
+      console.log(`[ApiService.getItemsDeChecklist] Calling URL: ${url}`);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -41,75 +41,78 @@ class ApiService {
 
       if (!response.ok) {
         console.error(`[ApiService.getItemsDeChecklist] API error for ${obraIdOrName}/${actualSheetName}: ${response.status}`);
-        throw new Error(`Error HTTP: ${response.status}`);
+        throw new Error(`Error fetching items: ${response.status} - ${response.statusText}`);
       }
 
-      // La API devuelve un objeto con propiedad items
-      const responseData = await response.json();
-      console.log('✅ Datos raw de API recibidos:', JSON.stringify(responseData, null, 2));
+      const rawData = await response.json();
+      console.log('✅ Datos raw de API recibidos:', rawData);
       
-      // Extraer el array de items del objeto respuesta
-      const itemsData = responseData.items;
-      if (!Array.isArray(itemsData)) {
-        console.warn('⚠️ API devolvió datos inválidos para items');
-        return [];
+      // Verificar si la respuesta es un array directamente o tiene una propiedad
+      let itemsArray;
+      if (Array.isArray(rawData)) {
+        itemsArray = rawData;
+      } else if (rawData.items && Array.isArray(rawData.items)) {
+        itemsArray = rawData.items;
+      } else {
+        console.error('[ApiService.getItemsDeChecklist] Respuesta de API no tiene formato esperado:', rawData);
+        throw new Error('Formato de respuesta inválido de la API');
       }
-      
-      // Los datos vienen como array de arrays
-      console.log(`📊 [ApiService.getItemsDeChecklist] Procesando ${itemsData.length} filas de datos`);
-      
-      const items = itemsData
-        .map((row: any[], index: number) => {
-          // Verificar que sea un array válido
-          if (!Array.isArray(row)) {
-            console.log(`⚠️ [ApiService.getItemsDeChecklist] Fila ${index} no es array:`, row);
-            return null;
-          }
-          
-          // Mapear las columnas según la estructura de Google Sheets
-          // 🔧 ACTUALIZADO: Columna P (row[15]) = Observaciones según reporte del usuario
-          const unidad = row[1] ? String(row[1]).trim() : '';
-          const descripcion = row[5] ? String(row[5]).trim() : '';
-          const s_contrato = row[12] ? String(row[12]).trim() : '';
-          const fechapp = row[14] ? String(row[14]).trim() : ''; // Columna O para fechapp
-          const observaciones = row[15] ? String(row[15]).trim() : ''; // 🔧 FIX: Columna P = row[15]
-          
-          // 🔍 DEBUG: Verificar observaciones
-          console.log(`🔍 [DEBUG] Fila ${index} - observaciones: "${observaciones}"`);
-          
-          // Determinar si está completado
-          const isCompleted = s_contrato === '√' || s_contrato === 'true';
-          
-          // Crear ID único
-          const itemId = `${obraIdOrName}-${index}-${(unidad || descripcion || 'item').replace(/\s+/g, '-')}`;
-          
-          return {
-            id: itemId,
-            descripcion: descripcion,
-            completado: isCompleted,
-            observaciones: observaciones || '',
-            unidad: unidad || '',
-            fechaCompletado: isCompleted ? (fechapp || new Date().toISOString()) : undefined,
-            rowIndex: index + 1, // 🔧 CRÍTICO: Índice real de la fila en Google Sheets
-          };
-        })
-        .filter((item): item is NonNullable<typeof item> => {
-          // Filtrar items nulos y que tengan contenido
-          if (!item) return false;
-          const hasContent = Boolean(item.unidad || item.descripcion);
-          return hasContent;
+
+      console.log(`[ApiService.getItemsDeChecklist] Items array length: ${itemsArray.length}`);
+
+      const mappedItems = itemsArray.map((item: any, index: number) => {
+        // Log detallado del item raw antes del mapeo
+        console.log(`🔍 [ApiService.getItemsDeChecklist] Item RAW ${index}:`, {
+          id: item.id,
+          unidad: item.unidad,
+          descripcion: item.descripcion,
+          observaciones: item.observaciones,
+          completado: item.completado,
+          s_contrato: item.s_contrato,
+          fechapp: item.fechapp,
+          fechaCompletado: item.fechaCompletado,
+          // Mostrar todas las propiedades para ver qué más hay
+          allProps: Object.keys(item)
         });
-      
+        
+        const mapped = {
+          id: item.id || `item_${index}`,
+          unidad: String(item.unidad || ''),
+          descripcion: String(item.descripcion || ''),
+          observaciones: String(item.observaciones || ''),
+          completado: item.completado === true || item.completado === 'true' || item.completado === '√' || item.s_contrato === '√',
+          fechapp: item.fechapp || item.fechaCompletado || undefined,
+          rowIndex: item.rowIndex || index
+        };
+        
+        // Log del item después del mapeo
+        console.log(`✅ [ApiService.getItemsDeChecklist] Item MAPEADO ${index}:`, mapped);
+        
+        return mapped;
+      });
+
+      console.log(`[ApiService.getItemsDeChecklist] Mapped ${mappedItems.length} items`);
+
+      const items = mappedItems.filter((item: any) => {
+        // Filtro básico: items que tengan contenido (como en el APK original)
+        const hasContent = Boolean(item.unidad || item.descripcion);
+        if (!hasContent) {
+          console.log('[ApiService.getItemsDeChecklist] Filtrando item vacío:', item);
+          return false;
+        }
+        return true;
+      });
+
+      console.log(`✅ [ApiService.getItemsDeChecklist] Returning ${items.length} filtered items`);
       return items;
     } catch (error) {
-      console.error('❌ Error en getItemsDeChecklist:', error);
+      console.error(`❌ [ApiService.getItemsDeChecklist] Error fetching checklist for ${obraIdOrName}/${instalacionNombre}:`, error);
       throw error;
     }
   }
 
   /**
-   * Guarda el checklist completo con todos los items y sus estados
-   * Implementación exacta basada en guardarChecks del APK original
+   * Guarda los checks y observaciones en el backend
    */
   async guardarChecks(
     obraIdOrName: string,
@@ -121,128 +124,80 @@ class ApiService {
   ): Promise<void> {
     try {
       console.log(`[ApiService.guardarChecks] Called with obraIdOrName: ${obraIdOrName}, instalacion: ${instalacionNombre}`);
+      console.log(`[ApiService.guardarChecks] Items to save count: ${itemsToSave.length}`);
       
-      // Determinar nombre real de la pestaña
-      let actualSheetName = instalacionNombre;
-      if (instalacionNombre.includes('|')) {
-        actualSheetName = instalacionNombre.split('|')[0].trim();
-        console.log(`[ApiService.guardarChecks] Extracted sheet name '${actualSheetName}' from composite ID '${instalacionNombre}'`);
-      }
-
-      // Filtrar items que han sido modificados o tienen observaciones
-      const itemsWithChanges = itemsToSave.filter(item => {
-        const hasValidRowIndex = typeof item.rowIndex === 'number' && item.rowIndex > 0;
-        const isMarked = item.completado === true;
-        const hasObservations = item.observaciones && item.observaciones.trim() !== '';
-        return hasValidRowIndex && (isMarked || hasObservations);
-      });
-
-      console.log(`📋 Filtrando items: ${itemsToSave.length} total -> ${itemsWithChanges.length} con cambios válidos`);
-
-      // Transformar al formato backend usando rowIndex REAL
-      const currentDate = new Date().toLocaleDateString('es-ES');
-      
-      const backendItems = itemsWithChanges.map((item) => {
-        console.log(`📝 Procesando item para guardar:`, {
+      // Log detallado de cada item que se va a guardar
+      itemsToSave.forEach((item, index) => {
+        console.log(`[ApiService.guardarChecks] Item ${index + 1}:`, {
           id: item.id,
-          descripcion: item.descripcion,
+          unidad: item.unidad,
+          descripcion: item.descripcion?.substring(0, 50) + '...',
+          observaciones: item.observaciones ? 'SÍ (' + item.observaciones.length + ' chars)' : 'NO',
           completado: item.completado,
-          observaciones: item.observaciones,
+          fechapp: item.fechapp,
           rowIndex: item.rowIndex
         });
-
-        return {
-          rowIndex: item.rowIndex, // 🔧 CRÍTICO: Usar rowIndex real de Google Sheets
-          descripcion: item.descripcion || '',
-          unidad: item.unidad || '',
-          completado: item.completado || false,
-          observaciones: item.observaciones || '',
-          fechaCompletado: item.completado ? currentDate : '',
-          s_contrato: item.completado ? '√' : '',
-          fechapp: item.completado ? currentDate : ''
-        };
       });
-
-      console.log(`📤 Enviando ${backendItems.length} items al backend:`, backendItems);
-
-      const response = await fetch(`${this.baseUrl}/guardarChecks`, {
+      
+      const url = `${this.baseUrl}/guardarChecks`;
+      const payload = {
+        obraIdOrName,
+        instalacionNombre,
+        items: itemsToSave,
+        usuario,
+        cargo,
+        obraNombreOriginal: _obraNombreOriginal
+      };
+      
+      console.log('[ApiService.guardarChecks] Payload structure:', {
+        obraIdOrName,
+        instalacionNombre,
+        itemsCount: itemsToSave.length,
+        usuario,
+        cargo,
+        obraNombreOriginal: _obraNombreOriginal
+      });
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          spreadsheetId: obraIdOrName,
-          pestana: actualSheetName,
-          items: backendItems,
-          usuario: usuario,
-          cargo: cargo,
-        }),
+        body: JSON.stringify(payload),
       });
 
+      console.log(`[ApiService.guardarChecks] Response status: ${response.status}`);
+      console.log(`[ApiService.guardarChecks] Response ok: ${response.ok}`);
+
       if (!response.ok) {
-        const errorBody = await response.text();
-        console.error(`[ApiService.guardarChecks] API error: ${response.status} - ${errorBody}`);
-        throw new Error(`Error guardando checklist: ${response.status} - ${errorBody}`);
+        const errorText = await response.text();
+        console.error(`[ApiService.guardarChecks] Error response: ${errorText}`);
+        throw new Error(`Error guardando checklist: ${response.status} - ${response.statusText}`);
       }
 
-      const responseData = await response.json();
-      console.log('✅ Checklist guardado exitosamente:', responseData);
+      const result = await response.json();
+      console.log('✅ [ApiService.guardarChecks] Respuesta completa del servidor:', result);
+      
+      // Verificar si el servidor indica éxito
+      if (result.success !== undefined && !result.success) {
+        console.error('❌ [ApiService.guardarChecks] El servidor reportó error:', result.error || result.message);
+        throw new Error(`Error del servidor: ${result.error || result.message || 'Error desconocido'}`);
+      }
       
     } catch (error) {
-      console.error('❌ Error en guardarChecks:', error);
+      console.error(`❌ [ApiService.guardarChecks] Error guardando checklist:`, error);
       throw error;
     }
   }
 
-  /**
-   * Obtiene las instalaciones de una obra específica
-   * Basado en la implementación del APK original
-   */
-  async getInstalaciones(spreadsheetId: string, obraNombre: string): Promise<any[]> {
-    try {
-      console.log('🔄 Obteniendo instalaciones para obra:', obraNombre);
-      
-      const response = await fetch(`${this.baseUrl}/instalaciones`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          spreadsheetId,
-          obraNombre
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Instalaciones recibidas:', data);
-      
-      return data || [];
-    } catch (error) {
-      console.error('❌ Error obteniendo instalaciones:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtiene las obras disponibles
-   * Basado en la implementación del APK original
-   */
   async getObras(spreadsheetId: string): Promise<any[]> {
     try {
-      console.log('🔄 Obteniendo obras...');
-      
       const response = await fetch(`${this.baseUrl}/obras`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          spreadsheetId
-        })
+        body: JSON.stringify({ spreadsheetId })
       });
 
       if (!response.ok) {
@@ -250,8 +205,6 @@ class ApiService {
       }
 
       const data = await response.json();
-      console.log('✅ Obras recibidas:', data);
-      
       return data || [];
     } catch (error) {
       console.error('❌ Error obteniendo obras:', error);
@@ -259,23 +212,14 @@ class ApiService {
     }
   }
 
-  /**
-   * Configurar la URL base del API
-   */
   setBaseUrl(url: string): void {
     this.baseUrl = url;
-    console.log('🔧 URL base configurada:', url);
   }
 
-  /**
-   * Obtener la URL base actual
-   */
   getBaseUrl(): string {
     return this.baseUrl;
   }
 }
 
-// Instancia única del servicio (singleton)
 const apiService = new ApiService();
-
 export default apiService;
