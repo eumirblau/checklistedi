@@ -9,8 +9,6 @@ function GrupoChecklistScreen({ route, navigation }) {
   const params = route?.params || {};
   const grupo = params.grupo || 'Sin grupo';
   
-  console.log('🏷️ [PARAMETROS] Grupo recibido por parámetros:', grupo);
-  console.log('🏷️ [PARAMETROS] Todos los parámetros:', JSON.stringify(params, null, 2));
   // Extraer spreadsheetId y obraNombre antes del efecto
   const spreadsheetId = params.spreadsheetId;
   const obraNombre = params.obraNombre;
@@ -74,7 +72,6 @@ function GrupoChecklistScreen({ route, navigation }) {
   // Funciones para persistencia con AsyncStorage
   const saveToAsyncStorage = async (data) => {
     try {
-      console.log('💾 [ASYNC] Guardando en AsyncStorage:', storageKey, data.length, 'items');
       await AsyncStorage.setItem(storageKey, JSON.stringify(data));
     } catch (error) {
       console.error('❌ [ASYNC] Error guardando en AsyncStorage:', error);
@@ -86,7 +83,6 @@ function GrupoChecklistScreen({ route, navigation }) {
       const stored = await AsyncStorage.getItem(storageKey);
       if (stored) {
         const data = JSON.parse(stored);
-        console.log('📱 [ASYNC] Cargando desde AsyncStorage:', storageKey, data.length, 'items');
         return data;
       }
     } catch (error) {
@@ -96,29 +92,15 @@ function GrupoChecklistScreen({ route, navigation }) {
   };
 
   // 🔍 DEBUG: Verificar usuario que llega
-  console.log('🔍 [GrupoChecklistScreen] DEBUG USUARIO RECIBIDO:', {
-    usuario_completo: usuario,
-    es_objeto: typeof usuario === 'object',
-    propiedades: typeof usuario === 'object' ? Object.keys(usuario) : 'N/A',
-    nombre: usuario?.nombre,
-    cargo: usuario?.cargo
-  });
-
   // Siempre cargar datos frescos desde Google Sheets al entrar y después de guardar
   const loadGroupItems = React.useCallback(async () => {
     try {
-      console.log('🔄 [GrupoChecklistScreen] Cargando datos frescos desde Google Sheets...');
-      
       // Si acabamos de guardar, no recargar automáticamente para evitar sobrescribir los datos locales
       if (justSaved) {
-        console.log('⚠️ [GrupoChecklistScreen] Saltando recarga automática - acabamos de guardar');
         return;
       }
       
-      console.log('🔄 [CARGA] spreadsheetId:', spreadsheetId);
-      console.log('🔄 [CARGA] instalacionNombre:', instalacionNombre);
       const freshData = await ApiService.getItemsDeChecklist(spreadsheetId, instalacionNombre);
-      console.log('🔄 [CARGA] Datos recibidos tras refrescar:', JSON.stringify(freshData, null, 2));
       if (!Array.isArray(freshData) || freshData.length === 0) {
         console.warn('⚠️ [DEBUG] La API devolvió datos vacíos tras refrescar. Mostrando datos locales guardados.');
         if (savedDataCache && Array.isArray(savedDataCache) && savedDataCache.length > 0) {
@@ -134,15 +116,10 @@ function GrupoChecklistScreen({ route, navigation }) {
       let ultimoEncabezado = '';
       const vistosRowIndex = new Set();
       
-      console.log('🔍 [DEBUG AGRUPAMIENTO] Empezando agrupamiento con', freshData.length, 'items');
-      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupo buscado:', grupo);
-      
       for (const item of freshData) {
         const unidad = item.unidad?.trim() || '';
         const descripcion = item.descripcion?.trim().toUpperCase() || '';
         const esEncabezado = unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2;
-        
-        console.log(`🔍 [DEBUG AGRUPAMIENTO] Item: unidad="${unidad}", descripcion="${descripcion}", esEncabezado=${esEncabezado}`);
         
         if (
           unidad && esEncabezado && unidad !== ultimoEncabezado
@@ -151,29 +128,20 @@ function GrupoChecklistScreen({ route, navigation }) {
           grupoActual = { encabezado: unidad || descripcion, items: [] };
           grupos.push(grupoActual);
           ultimoEncabezado = unidad || descripcion;
-          console.log(`✅ [DEBUG AGRUPAMIENTO] Nuevo grupo creado: "${grupoActual.encabezado}"`);
         } else if (grupoActual) {
           // Solo agregar si el rowIndex no está repetido
           if (!vistosRowIndex.has(item.rowIndex)) {
             grupoActual.items.push(item);
             vistosRowIndex.add(item.rowIndex);
-            console.log(`➕ [DEBUG AGRUPAMIENTO] Item agregado al grupo "${grupoActual.encabezado}": ${item.unidad}`);
           } else {
             console.warn('⚠️ [DEBUG] Duplicado rowIndex detectado en carga:', item.rowIndex, item);
           }
         }
       }
       
-      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupos encontrados:', grupos.map(g => `"${g.encabezado}" (${g.items.length} items)`));
-      
       const normalizar = str => (str || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
       const grupoEncontrado = grupos.find(g => normalizar(g.encabezado) === normalizar(grupo));
       
-      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupo normalizado buscado:', normalizar(grupo));
-      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupos normalizados disponibles:', grupos.map(g => normalizar(g.encabezado)));
-      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupo encontrado:', grupoEncontrado ? `"${grupoEncontrado.encabezado}" con ${grupoEncontrado.items.length} items` : 'NO ENCONTRADO');
-        // LOG EXTRA: Mostrar items recibidos para depuración
-        console.log('🟣 [GrupoChecklistScreen] Items recibidos tras filtro:', JSON.stringify(grupoEncontrado ? grupoEncontrado.items : [], null, 2));
         // LOG de observaciones y estado de check
         let itemsFiltrados = [];
         if (grupoEncontrado && Array.isArray(grupoEncontrado.items)) {
@@ -197,15 +165,8 @@ function GrupoChecklistScreen({ route, navigation }) {
           const rowIndexesSet = new Set(rowIndexes);
           if (rowIndexes.length !== rowIndexesSet.size) {
             console.error('❌ [DEBUG] ¡Se detectaron rowIndex duplicados en itemsFiltrados!', rowIndexes);
-          } else {
-            console.log('✅ [DEBUG] Todos los rowIndex son únicos en itemsFiltrados:', rowIndexes);
           }
         }
-        
-        console.log('🔍 [DEBUG] Items antes del mapeo final:', itemsFiltrados.length);
-        itemsFiltrados.forEach((item, index) => {
-          console.log(`🔍 [DEBUG] Item ${index}: completado=${item.completado}, observaciones="${item.observaciones}"`);
-        });
         
         // Asegurar que se muestra el historial completo de observaciones y el check como completado si corresponde
         const itemsMejorados = itemsFiltrados.map(item => ({
@@ -215,20 +176,6 @@ function GrupoChecklistScreen({ route, navigation }) {
           completado: item.s_contrato === '√' || item.s_contrato_cross === 'X',
           fechapp: item.fechapp || '',
         }));
-        
-        console.log('✅ [DEBUG] Items después del mapeo final:', itemsMejorados.length);
-        itemsMejorados.forEach((item, index) => {
-          console.log(`✅ [DEBUG] Item ${index}: completado=${item.completado}, observaciones="${item.observaciones}"`);
-        });
-        // Log final antes de renderizar
-        console.log('🔵 [RENDER] Array final de items a mostrar:', itemsMejorados.map(item => ({
-          rowIndex: item.rowIndex,
-          unidad: item.unidad,
-          descripcion: item.descripcion,
-          completado: item.completado,
-          observaciones: item.observaciones,
-          fechapp: item.fechapp
-        })));
         setItems(itemsMejorados);
         setSavedDataCache(itemsMejorados);
     } catch (error) {
@@ -279,20 +226,10 @@ function GrupoChecklistScreen({ route, navigation }) {
       const minutes = String(now.getMinutes()).padStart(2, '0');
       const timestamp = `${day}/${month}/${year} ${hours}:${minutes} - ${usuario?.nombre || usuario || 'Usuario'}`;
       
-      // 🐛 DEBUG: Ver qué timestamp se está generando
-      console.log('🕐 [DEBUG TIMESTAMP] Timestamp generado:', timestamp);
-      console.log('🕐 [DEBUG TIMESTAMP] Usuario:', usuario);
-      
       const updatedObservations = selectedItem.observaciones 
         ? `${selectedItem.observaciones}\n[${timestamp}] ${newObservation.trim()}`
         : `[${timestamp}] ${newObservation.trim()}`;
       
-      console.log('🔍 [DEBUG OBSERVACIONES] Añadiendo observación:');
-      console.log('   📝 Item:', selectedItem.unidad || selectedItem.descripcion);
-      console.log('   📝 Observaciones ANTES:', `"${selectedItem.observaciones || 'VACÍAS'}"`);
-      console.log('   📝 Nueva observación:', `"${newObservation.trim()}"`);
-      console.log('   📝 Resultado DESPUÉS:', `"${updatedObservations}"`);
-        
       setItems(prevItems =>
         prevItems.map(item =>
           String(item.rowIndex) === String(selectedItem.rowIndex)
@@ -303,8 +240,6 @@ function GrupoChecklistScreen({ route, navigation }) {
       
       setNewObservation(''); // Limpiar el campo después de agregar
       setModalVisible(false); // Cerrar modal
-      
-      console.log('✅ [DEBUG] Observación añadida al estado local. Recuerda GUARDAR.');
     }
   };
 
@@ -316,7 +251,6 @@ function GrupoChecklistScreen({ route, navigation }) {
           const newCompletado = !i.completado;
           const currentDate = new Date().toLocaleDateString('es-ES');
           const userName = usuario?.nombre || usuario || 'Usuario';
-          console.log(`✅ [TOGGLE] Item ${itemId}: ${i.completado ? 'DESMARCADO' : 'MARCADO'}`);
           return {
             ...i,
             completado: newCompletado,
@@ -332,8 +266,6 @@ function GrupoChecklistScreen({ route, navigation }) {
   // Subida de foto a Firebase y actualización local
   // Ahora handlePhotoTaken recibe la URL pública directamente desde PhotoButton
   const handlePhotoTaken = (itemId, publicUrl) => {
-    console.log('[PHOTO] handlePhotoTaken itemId:', itemId);
-    console.log('[PHOTO] handlePhotoTaken publicUrl:', publicUrl);
     if (!publicUrl || typeof publicUrl !== 'string' || !publicUrl.startsWith('http')) {
       Alert.alert('Error', 'No se recibió una URL válida de la foto.');
       return;
@@ -371,13 +303,6 @@ function GrupoChecklistScreen({ route, navigation }) {
 
   // Función para guardar los cambios
   const saveChecklist = async () => {
-    console.log('� [GrupoChecklistScreen] Iniciando guardado...');
-    console.log('📋 [GUARDAR] spreadsheetId:', spreadsheetId);
-    console.log('🏢 [GUARDAR] instalacionNombre:', instalacionNombre);
-    console.log('👤 [GUARDAR] usuario:', usuario);
-    console.log('🏗️ [GUARDAR] obraNombre:', obraNombre);
-    console.log('📝 [GUARDAR] items a guardar:', JSON.stringify(items, null, 2));
-    
     if (!spreadsheetId || !instalacionNombre || !usuario || !obraNombre) {
       Alert.alert('Error', 'Faltan datos necesarios para guardar. Por favor, regresa e intenta de nuevo.');
       return;
@@ -385,16 +310,6 @@ function GrupoChecklistScreen({ route, navigation }) {
 
     setSaving(true);
     try {
-      // Log de los datos que se van a guardar
-      console.log('🟡 [DEBUG] Items que se van a guardar:', items.map(item => ({
-        id: item.id,
-        unidad: item.unidad,
-        descripcion: item.descripcion,
-        completado: item.completado,
-        observaciones: item.observaciones,
-        fechapp: item.fechapp,
-        rowIndex: item.rowIndex
-      })));
       // Filtrar solo ítems chequeables antes de guardar
         // Filtrado robusto: solo ítems chequeables, nunca encabezados ni duplicados
         const vistosRowIndex = new Set();
@@ -415,18 +330,7 @@ function GrupoChecklistScreen({ route, navigation }) {
         const rowIndexesSet = new Set(rowIndexes);
         if (rowIndexes.length !== rowIndexesSet.size) {
           console.error('❌ [DEBUG] ¡Se detectaron rowIndex duplicados en itemsChequeables!', rowIndexes);
-        } else {
-          console.log('✅ [DEBUG] Todos los rowIndex son únicos en itemsChequeables:', rowIndexes);
         }
-        console.log('🟢 [DEBUG] Items chequeables enviados al backend:', itemsChequeables.map(item => ({
-          id: item.id,
-          unidad: item.unidad,
-          descripcion: item.descripcion,
-          completado: item.completado,
-          observaciones: item.observaciones,
-          fechapp: item.fechapp,
-          rowIndex: item.rowIndex
-        })));
       const result = await ApiService.guardarChecks(
         obraNombre,
         instalacionNombre,
@@ -440,7 +344,6 @@ function GrupoChecklistScreen({ route, navigation }) {
         usuario.cargo || 'Sin cargo',
         obraNombre
       );
-      console.log('🟢 [DEBUG] Respuesta de la API guardarChecks:', result);
 
       // Actualizar el estado local inmediatamente con los datos guardados
       const savedData = items.map(item => ({
@@ -451,22 +354,18 @@ function GrupoChecklistScreen({ route, navigation }) {
       }));
   setItems(savedData);
   setSavedDataCache(savedData);
-  console.log('💾 [CACHE] Datos guardados cacheados:', savedData.length, 'items');
   // No refrescar automáticamente tras guardar; solo al entrar o cambiar de grupo
 
       // Guardar también en AsyncStorage para persistencia completa
       await saveToAsyncStorage(savedData);
-      console.log('📱 [ASYNC] Datos guardados en AsyncStorage');
 
       // También actualizar los parámetros de navegación con los datos cacheados
       navigation.setParams({ cachedItems: savedData });
-      console.log('🧭 [NAVIGATION] Parámetros actualizados con cache para futuras navegaciones');
 
       Alert.alert('Guardado exitoso', 'Los cambios se han guardado correctamente.');
 
       // Refrescar desde la API después de un delay mayor para asegurar que Google Sheets procese los cambios
       setTimeout(() => {
-        console.log('🔄 [DEBUG] Refrescando datos desde la API tras guardar...');
         loadGroupItems();
       }, 7000);
     } catch (error) {
@@ -484,9 +383,6 @@ function GrupoChecklistScreen({ route, navigation }) {
           <TouchableOpacity onPress={async () => {
             // Guardar datos en AsyncStorage antes de volver
             if (items.length > 0) {
-              console.log('🔄 Guardando datos antes de volver');
-              console.log('🔄 Datos a guardar:', items.length, 'items');
-              
               // Guardar en AsyncStorage para persistencia completa
               await saveToAsyncStorage(items);
               
@@ -537,8 +433,6 @@ function GrupoChecklistScreen({ route, navigation }) {
               <TouchableOpacity
                 style={[styles.toggleContainerCompact, item.completado && styles.toggleContainerChecked]}
                 onPress={() => {
-                  console.log('🎯 [CLICK] TouchableOpacity presionado para item:', item.rowIndex);
-                  console.log('🎯 [CLICK] Item completo:', JSON.stringify(item, null, 2));
                   handleCheckboxChange(item.rowIndex);
                 }}
                 activeOpacity={0.7}

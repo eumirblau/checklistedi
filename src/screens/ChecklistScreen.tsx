@@ -61,12 +61,9 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
   const loadGrupos = async () => {
     try {
       setLoading(true);
-      console.log('🔄 [APK ORIGINAL] ChecklistScreen cargando datos desde Google Sheets...');
       
       // Obtener datos solo para extraer los grupos
       const data = await ApiService.getItemsDeChecklist(spreadsheetId, instalacionNombre);
-      
-      console.log('📊 DATOS RECIBIDOS para grupos:', data?.length || 0, 'items');
       
       // Filtrar "no check" y procesar grupos
       const validatedData = (data || []).filter(item => {
@@ -89,7 +86,6 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
         itemCount: grupo.items.length
       }));
       
-      console.log('✅ GRUPOS DETECTADOS:', gruposConConteo);
       setGrupos(gruposConConteo);
     } catch (error) {
       Alert.alert(
@@ -104,14 +100,12 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
 
   // ✅ APK ORIGINAL: Solo cargar datos la primera vez, NO refrescar automáticamente
   useEffect(() => {
-    console.log('🔄 ChecklistScreen montado - cargando datos SOLO la primera vez...');
     loadGrupos();
   }, []); // Sin dependencias - solo se ejecuta una vez al montar
 
   // ✅ APK ORIGINAL: Listener para actualizar progreso cuando volvemos de GrupoChecklistScreen
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('🔄 ChecklistScreen focused - recalculando progreso...');
       // Solo recalcular progreso si ya tenemos datos, NO recargar desde API
       if (items.length > 0) {
         const gruposActualizados = agruparPorEncabezados(items);
@@ -120,7 +114,6 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
           itemCount: grupo.items.length
         }));
         setGrupos(gruposConConteo);
-        console.log('✅ Progreso recalculado sin recargar datos');
       }
     });
 
@@ -210,7 +203,6 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
                     obraNombre,
                     jefeNombre,
                   };
-                  console.log('NAVEGANDO A GrupoChecklistScreen CON:', params);
                   navigation.navigate('GrupoChecklistScreen', params);
                 }}
               >
