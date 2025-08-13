@@ -38,8 +38,46 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# typescript
+# Archivos de configuración sensibles
+config/keys.js
+config/secrets.js
+config/firebase-key.json
+config/service-account.json
+firebase-adminsdk-*.json
+google-services.json
+GoogleService-Info.plist
+
+# Claves y certificados
+*.key
+*.pem
+*.p12
+*.p8
+*.jks
+*.keystore
+*.mobileprovision
+*.cer
+*.csr
+*.pfx
+
+# Carpetas de secretos
+_secrets/
+secrets/
+private/
+keys/
+
+# Firebase config con claves
+firebase-config.js
+firebaseConfig.js
+*firebase-config*
+*firebaseConfig*
+
+# TypeScript build info
 *.tsbuildinfo
 
 app-example
