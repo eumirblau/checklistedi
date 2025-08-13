@@ -36,11 +36,12 @@ exports.uploadPhotoBase64 = functions.https.onRequest(async (req, res) => {
     const bucket = admin.storage().bucket();
     const filePath = `${folder || 'uploads'}/${fileName}`;
     const file = bucket.file(filePath);
-    await file.save(buffer, { contentType: 'image/jpeg' });
-    const [url] = await file.getSignedUrl({
-      action: 'read',
-      expires: '03-01-2030',
+    await file.save(buffer, { 
+      contentType: 'image/jpeg',
+      public: true  // Hacer el archivo público
     });
+    // En lugar de URL firmada, usar URL pública directa
+    const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filePath)}?alt=media`;
     return res.json({ url });
   } catch (error) {
     console.error('Error en uploadPhotoBase64:', error);
@@ -203,6 +204,42 @@ exports.getObrasPorJefe = functions.https.onRequest((req, res) => {
 });
 
 // =====================
+// Función para eliminar fotos de Firebase Storage
+// =====================
+exports.deletePhotoFromFirebase = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  try {
+    const { filePath } = req.body;
+    if (!filePath) {
+      return res.status(400).json({ error: 'Falta filePath' });
+    }
+
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(filePath);
+    
+    // Verificar si el archivo existe antes de intentar eliminarlo
+    const [exists] = await file.exists();
+    if (!exists) {
+      return res.status(404).json({ error: 'Archivo no encontrado' });
+    }
+
+    await file.delete();
+    return res.json({ success: true, message: 'Archivo eliminado correctamente' });
+  } catch (error) {
+    console.error('Error en deletePhotoFromFirebase:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================
 // Función para listar fotos en una carpeta de Firebase Storage
 // =====================
 /**
@@ -216,17 +253,15 @@ exports.listphotosinfolder = functions.https.onRequest(async (req, res) => {
 
     const bucket = admin.storage().bucket();
     const [files] = await bucket.getFiles({ prefix: folder + '/' });
-    const photos = await Promise.all(files.map(async file => {
-      const [url] = await file.getSignedUrl({
-        action: 'read',
-        expires: '03-01-2100'
-      });
+    const photos = files.map(file => {
+      // Usar URL pública directa en lugar de URL firmada
+      const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(file.name)}?alt=media`;
       return {
         fileName: file.name.split('/').pop(),
         url,
         uploadedAt: file.metadata.timeCreated
       };
-    }));
+    });
 
     res.json({ photos });
   } catch (error) {

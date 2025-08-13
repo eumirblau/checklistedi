@@ -20,11 +20,6 @@ export class CloudPhotoService {
     fecha?: string;
     fileName: string;
   }): Promise<boolean> {
-    // TEMPORAL: Deshabilitado porque la Cloud Function no existe
-    console.warn('⚠️ [CloudPhotoService] deletePhotoFromFirebase temporalmente deshabilitado - Cloud Function no disponible');
-    return false;
-    
-    /* CÓDIGO ORIGINAL COMENTADO HASTA QUE ESTÉ LA CLOUD FUNCTION
     // Carpeta: checklist-photos/jefeGrupo/obra/instalacion/itemId/fecha/fileName
     const fechaStr = options?.fecha || '';
     // Usar el nombre tal cual, permitiendo espacios y caracteres
@@ -55,7 +50,6 @@ export class CloudPhotoService {
       console.error('❌ [CloudPhotoService] Error eliminando foto:', error);
       return false;
     }
-    */
   }
   // Método para obtener la lista de fotos de una carpeta en Storage (galería)
   static async listPhotos(options: {
