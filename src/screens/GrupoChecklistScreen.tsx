@@ -14,7 +14,7 @@ function GrupoChecklistScreen({ route, navigation }) {
     try {
       // Eliminar de Firebase
       const ok = await import('../services/CloudPhotoService').then(mod => mod.CloudPhotoService.deletePhotoFromFirebase({
-        jefeGrupo: usuario?.nombre || usuario || 'sin-jefe',
+        jefeGrupo: jefeNombre || 'sin-jefe',
         obra: obraNombre || 'sin-obra',
         instalacion: instalacionNombre || 'sin-instalacion',
         itemId,
@@ -45,7 +45,7 @@ function GrupoChecklistScreen({ route, navigation }) {
   const [savedDataCache, setSavedDataCache] = React.useState(null); // Cache de datos guardados exitosamente
 
   // Extraer parámetros necesarios para guardar
-  const { spreadsheetId, instalacionNombre, usuario, obraNombre } = params;
+  const { spreadsheetId, instalacionNombre, usuario, obraNombre, jefeNombre } = params;
 
   // Clave única para AsyncStorage basada en la ubicación del checklist
   const storageKey = `checklist_${spreadsheetId}_${instalacionNombre}_${grupo}`;
@@ -513,7 +513,7 @@ function GrupoChecklistScreen({ route, navigation }) {
                   onViewPhotos={() => handleViewPhotos(item.id)}
                   onDeletePhoto={(photo) => handleDeletePhoto(item.id, photo)}
                   maxPhotos={5}
-                  jefeGrupo={usuario?.nombre || usuario || 'sin-jefe'}
+                  jefeGrupo={jefeNombre || 'sin-jefe'}
                   obra={obraNombre || 'sin-obra'}
                   instalacion={instalacionNombre || 'sin-instalacion'}
                   fecha={new Date().toISOString().split('T')[0]}

@@ -208,6 +208,7 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
                     instalacionNombre,
                     usuario,
                     obraNombre,
+                    jefeNombre,
                   };
                   console.log('NAVEGANDO A GrupoChecklistScreen CON:', params);
                   navigation.navigate('GrupoChecklistScreen', params);
