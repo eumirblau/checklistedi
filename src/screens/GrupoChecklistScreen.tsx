@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
 import React from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
@@ -9,6 +8,28 @@ import PhotoButton from '../components/PhotoButton';
 function GrupoChecklistScreen({ route, navigation }) {
   const params = route?.params || {};
   const grupo = params.grupo || 'Sin grupo';
+  
+  console.log('🏷️ [PARAMETROS] Grupo recibido por parámetros:', grupo);
+  console.log('🏷️ [PARAMETROS] Todos los parámetros:', JSON.stringify(params, null, 2));
+  // Extraer spreadsheetId y obraNombre antes del efecto
+  const spreadsheetId = params.spreadsheetId;
+  const obraNombre = params.obraNombre;
+  // Validar que siempre tengamos spreadsheetId real
+  React.useEffect(() => {
+    const checkSpreadsheetId = async () => {
+      if (!spreadsheetId && obraNombre) {
+        const resolvedId = await ApiService.mapToRealSpreadsheetId(obraNombre);
+        if (resolvedId) {
+          params.spreadsheetId = resolvedId;
+          // Actualizar navegación para que el resto del flujo use el id correcto
+          navigation.setParams({ ...params, spreadsheetId: resolvedId });
+        } else {
+          Alert.alert('Error', 'No se pudo encontrar el ID de la hoja para esta obra.');
+        }
+      }
+    };
+    checkSpreadsheetId();
+  }, [spreadsheetId, obraNombre]);
   // Eliminar foto de Firebase y del estado local
   const handleDeletePhoto = async (itemId, photo) => {
     try {
@@ -45,7 +66,7 @@ function GrupoChecklistScreen({ route, navigation }) {
   const [savedDataCache, setSavedDataCache] = React.useState(null); // Cache de datos guardados exitosamente
 
   // Extraer parámetros necesarios para guardar
-  const { spreadsheetId, instalacionNombre, usuario, obraNombre, jefeNombre } = params;
+  const { instalacionNombre, usuario, jefeNombre } = params;
 
   // Clave única para AsyncStorage basada en la ubicación del checklist
   const storageKey = `checklist_${spreadsheetId}_${instalacionNombre}_${grupo}`;
@@ -94,43 +115,92 @@ function GrupoChecklistScreen({ route, navigation }) {
         return;
       }
       
+      console.log('🔄 [CARGA] spreadsheetId:', spreadsheetId);
+      console.log('🔄 [CARGA] instalacionNombre:', instalacionNombre);
       const freshData = await ApiService.getItemsDeChecklist(spreadsheetId, instalacionNombre);
+      console.log('🔄 [CARGA] Datos recibidos tras refrescar:', JSON.stringify(freshData, null, 2));
       if (!Array.isArray(freshData) || freshData.length === 0) {
-        setItems([]);
+        console.warn('⚠️ [DEBUG] La API devolvió datos vacíos tras refrescar. Mostrando datos locales guardados.');
+        if (savedDataCache && Array.isArray(savedDataCache) && savedDataCache.length > 0) {
+          setItems(savedDataCache);
+        } else {
+          setItems([]);
+        }
         return;
       }
-      // Agrupar y filtrar el grupo actual
+      // Agrupamiento robusto y filtrado: evitar encabezados y duplicados
       const grupos = [];
       let grupoActual = null;
       let ultimoEncabezado = '';
+      const vistosRowIndex = new Set();
+      
+      console.log('🔍 [DEBUG AGRUPAMIENTO] Empezando agrupamiento con', freshData.length, 'items');
+      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupo buscado:', grupo);
+      
       for (const item of freshData) {
         const unidad = item.unidad?.trim() || '';
         const descripcion = item.descripcion?.trim().toUpperCase() || '';
+        const esEncabezado = unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2;
+        
+        console.log(`🔍 [DEBUG AGRUPAMIENTO] Item: unidad="${unidad}", descripcion="${descripcion}", esEncabezado=${esEncabezado}`);
+        
         if (
-          unidad && unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2 && unidad !== ultimoEncabezado
+          unidad && esEncabezado && unidad !== ultimoEncabezado
           || ["EXISTENTE NO SE MODIFICA","NO ES MOTIVO DE LA OBRA","NO SE HA INICIADO","OBSERVACIONES/ANOTACIONES","FIRMAS"].includes(descripcion)
         ) {
           grupoActual = { encabezado: unidad || descripcion, items: [] };
           grupos.push(grupoActual);
           ultimoEncabezado = unidad || descripcion;
+          console.log(`✅ [DEBUG AGRUPAMIENTO] Nuevo grupo creado: "${grupoActual.encabezado}"`);
         } else if (grupoActual) {
-          grupoActual.items.push(item);
+          // Solo agregar si el rowIndex no está repetido
+          if (!vistosRowIndex.has(item.rowIndex)) {
+            grupoActual.items.push(item);
+            vistosRowIndex.add(item.rowIndex);
+            console.log(`➕ [DEBUG AGRUPAMIENTO] Item agregado al grupo "${grupoActual.encabezado}": ${item.unidad}`);
+          } else {
+            console.warn('⚠️ [DEBUG] Duplicado rowIndex detectado en carga:', item.rowIndex, item);
+          }
         }
       }
-        const grupoEncontrado = grupos.find(g => g.encabezado === grupo);
+      
+      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupos encontrados:', grupos.map(g => `"${g.encabezado}" (${g.items.length} items)`));
+      
+      const normalizar = str => (str || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+      const grupoEncontrado = grupos.find(g => normalizar(g.encabezado) === normalizar(grupo));
+      
+      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupo normalizado buscado:', normalizar(grupo));
+      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupos normalizados disponibles:', grupos.map(g => normalizar(g.encabezado)));
+      console.log('🔍 [DEBUG AGRUPAMIENTO] Grupo encontrado:', grupoEncontrado ? `"${grupoEncontrado.encabezado}" con ${grupoEncontrado.items.length} items` : 'NO ENCONTRADO');
         // LOG EXTRA: Mostrar items recibidos para depuración
         console.log('🟣 [GrupoChecklistScreen] Items recibidos tras filtro:', JSON.stringify(grupoEncontrado ? grupoEncontrado.items : [], null, 2));
         // LOG de observaciones y estado de check
-        (grupoEncontrado ? grupoEncontrado.items : []).forEach(item => {
-          console.log(`🟣 [GrupoChecklistScreen] Item: ${item.unidad || item.descripcion}`);
-          console.log(`   📝 Observaciones: "${item.observaciones}"`);
-          console.log(`   ✅ Completado: ${item.completado} (tipo: ${typeof item.completado})`);
-          console.log(`   📅 fechapp: "${item.fechapp}"`);
-          console.log(`   🏗️ s_contrato: "${item.s_contrato}"`);
-        });
-        const itemsFiltrados = grupoEncontrado
-          ? grupoEncontrado.items.filter(item => (item.descripcion || '').trim().toLowerCase() !== 'no check')
-          : [];
+        let itemsFiltrados = [];
+        if (grupoEncontrado && Array.isArray(grupoEncontrado.items)) {
+          // Filtrado robusto: solo ítems chequeables, nunca encabezados ni duplicados
+          const vistos = new Set();
+          itemsFiltrados = grupoEncontrado.items.filter(item => {
+            const idUnico = item.rowIndex || item.id;
+            const descripcion = (item.descripcion || '').trim().toLowerCase();
+            const unidad = (item.unidad || '').trim();
+            const esEncabezado = unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2;
+            const valido = !vistos.has(idUnico) && descripcion !== 'no check' && unidad !== '' && !esEncabezado;
+            if (valido) {
+              vistos.add(idUnico);
+            } else if (vistos.has(idUnico)) {
+              console.warn('⚠️ [DEBUG] Duplicado rowIndex detectado en filtrado:', idUnico, item);
+            }
+            return valido;
+          });
+          // Log de rowIndex únicos
+          const rowIndexes = itemsFiltrados.map(item => item.rowIndex);
+          const rowIndexesSet = new Set(rowIndexes);
+          if (rowIndexes.length !== rowIndexesSet.size) {
+            console.error('❌ [DEBUG] ¡Se detectaron rowIndex duplicados en itemsFiltrados!', rowIndexes);
+          } else {
+            console.log('✅ [DEBUG] Todos los rowIndex son únicos en itemsFiltrados:', rowIndexes);
+          }
+        }
         
         console.log('🔍 [DEBUG] Items antes del mapeo final:', itemsFiltrados.length);
         itemsFiltrados.forEach((item, index) => {
@@ -140,8 +210,9 @@ function GrupoChecklistScreen({ route, navigation }) {
         // Asegurar que se muestra el historial completo de observaciones y el check como completado si corresponde
         const itemsMejorados = itemsFiltrados.map(item => ({
           ...item,
+          id: String(item.rowIndex),
           observaciones: item.observaciones || '',
-          completado: Boolean(item.completado),
+          completado: item.s_contrato === '√' || item.s_contrato_cross === 'X',
           fechapp: item.fechapp || '',
         }));
         
@@ -149,70 +220,32 @@ function GrupoChecklistScreen({ route, navigation }) {
         itemsMejorados.forEach((item, index) => {
           console.log(`✅ [DEBUG] Item ${index}: completado=${item.completado}, observaciones="${item.observaciones}"`);
         });
+        // Log final antes de renderizar
+        console.log('🔵 [RENDER] Array final de items a mostrar:', itemsMejorados.map(item => ({
+          rowIndex: item.rowIndex,
+          unidad: item.unidad,
+          descripcion: item.descripcion,
+          completado: item.completado,
+          observaciones: item.observaciones,
+          fechapp: item.fechapp
+        })));
         setItems(itemsMejorados);
+        setSavedDataCache(itemsMejorados);
     } catch (error) {
       console.error('❌ Error cargando datos:', error);
       setItems([]);
     }
   }, [spreadsheetId, instalacionNombre, grupo, justSaved]);
 
-  // ✅ APK ORIGINAL: Solo cargar datos al montar el componente
+  // Cargar los ítems solo al montar la pantalla
   React.useEffect(() => {
-    const initializeData = async () => {
-      // 1. Intentar cargar desde AsyncStorage primero
-      const storedData = await loadFromAsyncStorage();
-      if (storedData && Array.isArray(storedData) && storedData.length > 0) {
-        console.log('📱 [INIT] Usando datos de AsyncStorage:', storedData.length, 'items');
-        setItems(storedData);
-        setSavedDataCache(storedData);
-        return;
-      }
+    loadGroupItems();
+  }, []);
 
-      // 2. Si hay datos cacheados en los parámetros de navegación, usarlos
-      if (params.cachedItems && Array.isArray(params.cachedItems)) {
-        console.log('💾 [INIT] Usando datos cacheados de navegación:', params.cachedItems.length, 'items');
-        setItems(params.cachedItems);
-        setSavedDataCache(params.cachedItems);
-        // Guardar también en AsyncStorage para futuras sesiones
-        await saveToAsyncStorage(params.cachedItems);
-        return;
-      }
-
-      // 3. Solo cargar datos frescos si no hay ningún cache
-      if (items.length === 0) {
-        console.log('🌐 [INIT] Cargando datos frescos desde servidor...');
-        loadGroupItems();
-      }
-    };
-
-    initializeData();
-  }, []); // Solo ejecutar una vez al montar
+  
 
   // Verificar datos cacheados cuando la pantalla se enfoca (regresa a ella)
-  useFocusEffect(
-    React.useCallback(() => {
-      const restoreDataOnFocus = async () => {
-        // Si no hay datos cargados, intentar restaurar desde AsyncStorage
-        if (items.length === 0) {
-          const storedData = await loadFromAsyncStorage();
-          if (storedData && Array.isArray(storedData) && storedData.length > 0) {
-            console.log('🔄 [FOCUS ASYNC] Restaurando desde AsyncStorage:', storedData.length, 'items');
-            setItems(storedData);
-            setSavedDataCache(storedData);
-            return;
-          }
-
-          // Fallback al cache en memoria
-          if (savedDataCache && Array.isArray(savedDataCache)) {
-            console.log('🔄 [FOCUS CACHE] Restaurando desde savedDataCache:', savedDataCache.length, 'items');
-            setItems(savedDataCache);
-          }
-        }
-      };
-
-      restoreDataOnFocus();
-    }, [items.length, savedDataCache])
-  );
+  // Refresco manual: solo se recarga desde la hoja si el usuario lo solicita
 
   // Tipo local para fotos compatible con PhotoButton
   type PhotoMetadata = {
@@ -262,7 +295,7 @@ function GrupoChecklistScreen({ route, navigation }) {
         
       setItems(prevItems =>
         prevItems.map(item =>
-          item.id === selectedItem.id
+          String(item.rowIndex) === String(selectedItem.rowIndex)
             ? { ...item, observaciones: updatedObservations }
             : item
         )
@@ -279,15 +312,13 @@ function GrupoChecklistScreen({ route, navigation }) {
   const handleCheckboxChange = (itemId) => {
     setItems(prevItems =>
       prevItems.map(i => {
-        if (i.id === itemId) {
+        if (String(i.rowIndex) === String(itemId)) {
           const newCompletado = !i.completado;
           const currentDate = new Date().toLocaleDateString('es-ES');
           const userName = usuario?.nombre || usuario || 'Usuario';
-          
           return {
             ...i,
             completado: newCompletado,
-            // Usar fechapp que es lo que entiende el backend
             fechapp: newCompletado ? currentDate : '',
             usuarioCompletado: newCompletado ? userName : ''
           };
@@ -340,11 +371,11 @@ function GrupoChecklistScreen({ route, navigation }) {
   // Función para guardar los cambios
   const saveChecklist = async () => {
     console.log('� [GrupoChecklistScreen] Iniciando guardado...');
-    console.log('📋 spreadsheetId:', spreadsheetId);
-    console.log('🏢 instalacionNombre:', instalacionNombre);
-    console.log('👤 usuario:', usuario);
-    console.log('🏗️ obraNombre:', obraNombre);
-    console.log('📝 items a guardar:', items.length);
+    console.log('📋 [GUARDAR] spreadsheetId:', spreadsheetId);
+    console.log('🏢 [GUARDAR] instalacionNombre:', instalacionNombre);
+    console.log('👤 [GUARDAR] usuario:', usuario);
+    console.log('🏗️ [GUARDAR] obraNombre:', obraNombre);
+    console.log('📝 [GUARDAR] items a guardar:', JSON.stringify(items, null, 2));
     
     if (!spreadsheetId || !instalacionNombre || !usuario || !obraNombre) {
       Alert.alert('Error', 'Faltan datos necesarios para guardar. Por favor, regresa e intenta de nuevo.');
@@ -363,10 +394,42 @@ function GrupoChecklistScreen({ route, navigation }) {
         fechapp: item.fechapp,
         rowIndex: item.rowIndex
       })));
+      // Filtrar solo ítems chequeables antes de guardar
+        // Filtrado robusto: solo ítems chequeables, nunca encabezados ni duplicados
+        const vistosRowIndex = new Set();
+        const itemsChequeables = items.filter(item => {
+          const descripcion = (item.descripcion || '').trim().toLowerCase();
+          const unidad = (item.unidad || '').trim();
+          const esEncabezado = unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2;
+          const valido = descripcion !== 'no check' && unidad !== '' && !esEncabezado && item.rowIndex && !vistosRowIndex.has(item.rowIndex);
+          if (valido) {
+            vistosRowIndex.add(item.rowIndex);
+          } else if (vistosRowIndex.has(item.rowIndex)) {
+            console.warn('⚠️ [DEBUG] Duplicado rowIndex detectado:', item.rowIndex, item);
+          }
+          return valido;
+        });
+        // Log de rowIndex únicos
+        const rowIndexes = itemsChequeables.map(item => item.rowIndex);
+        const rowIndexesSet = new Set(rowIndexes);
+        if (rowIndexes.length !== rowIndexesSet.size) {
+          console.error('❌ [DEBUG] ¡Se detectaron rowIndex duplicados en itemsChequeables!', rowIndexes);
+        } else {
+          console.log('✅ [DEBUG] Todos los rowIndex son únicos en itemsChequeables:', rowIndexes);
+        }
+        console.log('🟢 [DEBUG] Items chequeables enviados al backend:', itemsChequeables.map(item => ({
+          id: item.id,
+          unidad: item.unidad,
+          descripcion: item.descripcion,
+          completado: item.completado,
+          observaciones: item.observaciones,
+          fechapp: item.fechapp,
+          rowIndex: item.rowIndex
+        })));
       const result = await ApiService.guardarChecks(
         obraNombre,
         instalacionNombre,
-        items.map(item => ({
+        itemsChequeables.map(item => ({
           ...item,
           observaciones: item.observaciones || '',
           completado: item.completado || false,
@@ -377,36 +440,34 @@ function GrupoChecklistScreen({ route, navigation }) {
         obraNombre
       );
       console.log('🟢 [DEBUG] Respuesta de la API guardarChecks:', result);
-      
-      // Cachear los datos guardados exitosamente
+
+      // Actualizar el estado local inmediatamente con los datos guardados
       const savedData = items.map(item => ({
         ...item,
         observaciones: item.observaciones || '',
         completado: item.completado || false,
         fechapp: item.fechapp || '',
       }));
-      setSavedDataCache(savedData);
-      console.log('💾 [CACHE] Datos guardados cacheados:', savedData.length, 'items');
-      
+  setItems(savedData);
+  setSavedDataCache(savedData);
+  console.log('💾 [CACHE] Datos guardados cacheados:', savedData.length, 'items');
+  // No refrescar automáticamente tras guardar; solo al entrar o cambiar de grupo
+
       // Guardar también en AsyncStorage para persistencia completa
       await saveToAsyncStorage(savedData);
       console.log('📱 [ASYNC] Datos guardados en AsyncStorage');
-      
+
       // También actualizar los parámetros de navegación con los datos cacheados
       navigation.setParams({ cachedItems: savedData });
       console.log('🧭 [NAVIGATION] Parámetros actualizados con cache para futuras navegaciones');
-      
-      // Marcar que acabamos de guardar para evitar recargas automáticas
-      setJustSaved(true);
-      
+
       Alert.alert('Guardado exitoso', 'Los cambios se han guardado correctamente.');
-      
-      // Aumentar el tiempo de espera para que Google Sheets procese los cambios
-      console.log('⏰ [DEBUG] Esperando 5 segundos antes de permitir recargas automáticas...');
+
+      // Refrescar desde la API después de un delay mayor para asegurar que Google Sheets procese los cambios
       setTimeout(() => {
-        console.log('🔄 [DEBUG] Permitiendo recargas automáticas de nuevo...');
-        setJustSaved(false);
-      }, 5000);
+        console.log('🔄 [DEBUG] Refrescando datos desde la API tras guardar...');
+        loadGroupItems();
+      }, 7000);
     } catch (error) {
       console.error('❌ Error guardando checklist:', error);
       Alert.alert('Error al guardar', `No se pudieron guardar los cambios: ${error.message || error}`, [{ text: 'OK' }]);
@@ -460,7 +521,7 @@ function GrupoChecklistScreen({ route, navigation }) {
           <ThemedText>No hay items para mostrar.</ThemedText>
         ) : (
           items.map((item) => (
-            <View key={item.id} style={styles.itemCard}>
+            <View key={item.rowIndex} style={styles.itemCard}>
               {/* Mostrar unidad y descripción del item */}
               <ThemedText style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 4 }}>
                 {item.unidad || 'Sin unidad'}
@@ -888,6 +949,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   saveButtonDisabled: {
+
     backgroundColor: '#a0aec0',
     opacity: 0.6,
   },
@@ -895,7 +957,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
-  },
+  }
 });
 
 export default GrupoChecklistScreen;

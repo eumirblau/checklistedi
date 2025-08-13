@@ -327,6 +327,8 @@ exports.guardarChecks = functions.https.onRequest(async (req, res) => {
         continue;
       }
       const rowIndex = item.rowIndex;
+      // Log detallado de cada item que se va a guardar
+      console.log(`[GUARDAR] rowIndex=${rowIndex}, unidad=${item.unidad}, descripcion=${item.descripcion}, observaciones="${item.observaciones}", s_contrato=${item.s_contrato}, fechapp=${item.fechapp}`);
       const hasCheckChange = item.s_contrato === '√' || item.s_contrato === 'X';
       const hasObservations = item.observaciones && item.observaciones.trim() !== '';
       const hasRealChanges = hasCheckChange || hasObservations;

@@ -9,6 +9,32 @@ export interface ChecklistItem {
 }
 
 class ApiService {
+  /**
+   * Traduce el nombre de la obra al spreadsheetId real usando la API
+   */
+  async mapToRealSpreadsheetId(obraNombre: string): Promise<string | null> {
+    try {
+      // Llama al endpoint /obras para obtener la lista de obras y sus IDs
+      const response = await fetch(`${this.baseUrl}/obras`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      });
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+      const data = await response.json();
+      // data debe ser un array de obras con nombre y spreadsheetId
+      if (!Array.isArray(data)) return null;
+      const found = data.find((obra: any) => obra.nombre === obraNombre || obra.nombre?.trim() === obraNombre?.trim());
+      return found?.spreadsheetId || null;
+    } catch (error) {
+      console.error('❌ Error en mapToRealSpreadsheetId:', error);
+      return null;
+    }
+  }
   private baseUrl: string;
 
   constructor() {
@@ -69,20 +95,24 @@ class ApiService {
           observaciones: item.observaciones,
           completado: item.completado,
           s_contrato: item.s_contrato,
+          s_contrato_cross: item.s_contrato_cross,
           fechapp: item.fechapp,
           fechaCompletado: item.fechaCompletado,
+          rowIndex: item.rowIndex,
           // Mostrar todas las propiedades para ver qué más hay
           allProps: Object.keys(item)
         });
         
         const mapped = {
-          id: item.id || `item_${index}`,
+          id: item.rowIndex ? String(item.rowIndex) : `item_${index}`,
           unidad: String(item.unidad || ''),
           descripcion: String(item.descripcion || ''),
           observaciones: String(item.observaciones || ''),
           completado: item.completado === true || item.completado === 'true' || item.completado === '√' || item.s_contrato === '√',
           fechapp: item.fechapp || item.fechaCompletado || undefined,
-          rowIndex: item.rowIndex || index
+          s_contrato: String(item.s_contrato || ''),
+          s_contrato_cross: String(item.s_contrato_cross || ''),
+          rowIndex: item.rowIndex || (index + 2)
         };
         
         // Log del item después del mapeo
@@ -97,7 +127,6 @@ class ApiService {
         // Filtro básico: items que tengan contenido (como en el APK original)
         const hasContent = Boolean(item.unidad || item.descripcion);
         if (!hasContent) {
-          console.log('[ApiService.getItemsDeChecklist] Filtrando item vacío:', item);
           return false;
         }
         return true;

@@ -319,14 +319,14 @@ class ApiService {
       // Los datos vienen como array de arrays: [["","ACOMETIDA BT","","","","EXISTENTE NO SE MODIFICA"], ...]
       // Necesitamos mapear cada fila (array) a un objeto ChecklistItem
       console.log(`📊 [ApiService.getItemsDeChecklist] Procesando ${itemsData.length} filas de datos`);
-      
+
       return itemsData.map((row: any[], index: number) => {
         // Verificar que sea un array válido
         if (!Array.isArray(row)) {
           console.log(`⚠️ [ApiService.getItemsDeChecklist] Fila ${index} no es array:`, row);
           return null;
         }
-        
+
         // Mapear las columnas según la estructura de Google Sheets
         // 🔧 ACTUALIZADO: Columna P (row[15]) = Observaciones según reporte del usuario
         const unidad = row[1] ? String(row[1]).trim() : '';
@@ -334,24 +334,13 @@ class ApiService {
         const s_contrato = row[12] ? String(row[12]).trim() : '';
         const fechapp = row[14] ? String(row[14]).trim() : ''; // Intentar columna O para fechapp
         const observaciones = row[15] ? String(row[15]).trim() : ''; // 🔧 FIX: Columna P = row[15]
-        
-        // 🔍 DEBUG: Verificar todas las columnas para encontrar observaciones
-        console.log(`🔍 [DEBUG] Fila ${index} - unidad: "${unidad}", descripcion: "${descripcion}"`);
-        console.log(`🔍 [DEBUG] Columnas importantes:`, {
-          col12_s_contrato: row[12],
-          col13: row[13],
-          col14_fechapp: row[14], // Columna O
-          col15_observaciones: row[15], // Columna P
-          col16: row[16],
-          col17: row[17]
-        });
-        
+
         // Determinar si está completado
         const isCompleted = s_contrato === '√' || s_contrato === 'true';
-        
+
         // Crear ID único
         const itemId = `${spreadsheetId}-${index}-${(unidad || descripcion || 'item').replace(/\s+/g, '-')}`;
-        
+
         console.log(`[ApiService.getItemsDeChecklist] Procesando fila ${index}:`, {
           unidad,
           descripcion,
@@ -359,9 +348,9 @@ class ApiService {
           observaciones: observaciones || 'SIN OBSERVACIONES',
           fechapp,
           isCompleted,
-          rowIndex: index + 1 // Índice de fila real
+          rowIndex: index + 2 // 🔧 FIX: rowIndex correcto - idx 0 = fila 2, idx 1 = fila 3, etc.
         });
-        
+
         return {
           id: itemId,
           descripcion: descripcion,
@@ -372,7 +361,7 @@ class ApiService {
           fechapp: fechapp || undefined,
           cantidad: undefined,
           fechaCompletado: isCompleted ? (fechapp || new Date().toISOString()) : undefined,
-          rowIndex: index + 1, // Índice real de la fila en Google Sheets
+          rowIndex: index + 2, // 🔧 FIX: Índice real de la fila en Google Sheets (A2=2, A3=3, etc.)
           meta: undefined,
           actual: undefined,
           subItems: [],
