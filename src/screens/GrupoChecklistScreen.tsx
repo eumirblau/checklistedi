@@ -237,8 +237,18 @@ function GrupoChecklistScreen({ route, navigation }) {
 
   const addObservation = () => {
     if (selectedItem && newObservation.trim()) {
-      const timestamp = new Date().toLocaleString('es-ES');
-      // ✅ APK ORIGINAL: Solo timestamp, sin nombre de usuario
+      // Formato fecha: DD/MM/AA HH:MM + nombre usuario
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = String(now.getFullYear()).slice(-2);
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const timestamp = `${day}/${month}/${year} ${hours}:${minutes} - ${usuario?.nombre || usuario || 'Usuario'}`;
+      
+      // 🐛 DEBUG: Ver qué timestamp se está generando
+      console.log('🕐 [DEBUG TIMESTAMP] Timestamp generado:', timestamp);
+      console.log('🕐 [DEBUG TIMESTAMP] Usuario:', usuario);
       
       const updatedObservations = selectedItem.observaciones 
         ? `${selectedItem.observaciones}\n[${timestamp}] ${newObservation.trim()}`

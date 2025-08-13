@@ -667,41 +667,69 @@ class ApiService {
         throw new Error('API devolvió datos inválidos');
       }
       
-      // Procesar las obras - cada fila viene como [jefe, obraId, nombre, url]
-      const obras = obrasRaw.map((row: any[], index: number): Obra => {
-        if (!Array.isArray(row) || row.length < 4) {
-          console.warn(`⚠️ Fila de obra ${index} tiene formato incorrecto:`, row);
+      // Procesar las obras - cada fila puede venir como objeto {idObra, nombreObra} o array [jefe, obraId, nombre, url]
+      const obras = obrasRaw.map((row: any, index: number): Obra => {
+        // Si es un objeto con idObra y nombreObra
+        if (row && typeof row === 'object' && !Array.isArray(row) && row.idObra && row.nombreObra) {
+          const url = row.idObra;
+          let spreadsheetId = '';
+          
+          // Extraer spreadsheetId de la URL de Google Sheets
+          if (url && typeof url === 'string' && url.includes('spreadsheets/d/')) {
+            const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+            spreadsheetId = match ? match[1] : '';
+          }
+          
+          console.log(`🔍 [ApiService.getObrasPorJefe] Procesando obra ${index} (formato objeto):`, {
+            url,
+            nombre: row.nombreObra,
+            spreadsheetId
+          });
+          
           return {
-            id: `obra-${index}`,
-            nombre: `Obra ${index + 1}`,
-            spreadsheetId: '',
-            ubicacion: '',
+            id: spreadsheetId || `obra-${index}`,
+            nombre: row.nombreObra || `Obra ${index + 1}`,
+            spreadsheetId: spreadsheetId,
+            ubicacion: row.nombreObra || '',
             estado: 'Activo'
           };
         }
         
-        const [jefe, obraId, nombre, url] = row;
-        
-        // Extraer spreadsheetId de la URL de Google Sheets
-        let spreadsheetId = '';
-        if (url && typeof url === 'string' && url.includes('spreadsheets/d/')) {
-          const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-          spreadsheetId = match ? match[1] : '';
+        // Si es un array [jefe, obraId, nombre, url] (formato anterior)
+        if (Array.isArray(row) && row.length >= 4) {
+          const [jefe, obraId, nombre, url] = row;
+          
+          // Extraer spreadsheetId de la URL de Google Sheets
+          let spreadsheetId = '';
+          if (url && typeof url === 'string' && url.includes('spreadsheets/d/')) {
+            const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+            spreadsheetId = match ? match[1] : '';
+          }
+          
+          console.log(`🔍 [ApiService.getObrasPorJefe] Procesando obra ${index} (formato array):`, {
+            jefe,
+            obraId,
+            nombre,
+            url,
+            spreadsheetId
+          });
+          
+          return {
+            id: obraId || `obra-${index}`,
+            nombre: nombre || `Obra ${index + 1}`,
+            spreadsheetId: spreadsheetId,
+            ubicacion: nombre || '',
+            estado: 'Activo'
+          };
         }
         
-        console.log(`🔍 [ApiService.getObrasPorJefe] Procesando obra ${index}:`, {
-          jefe,
-          obraId,
-          nombre,
-          url,
-          spreadsheetId
-        });
-        
+        // Formato incorrecto - fallback
+        console.warn(`⚠️ Fila de obra ${index} tiene formato incorrecto:`, row);
         return {
-          id: obraId || `obra-${index}`,
-          nombre: nombre || `Obra ${index + 1}`,
-          spreadsheetId: spreadsheetId,
-          ubicacion: nombre || '',
+          id: `obra-${index}`,
+          nombre: `Obra ${index + 1}`,
+          spreadsheetId: '',
+          ubicacion: '',
           estado: 'Activo'
         };
       });
