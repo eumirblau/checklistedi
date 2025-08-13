@@ -331,7 +331,7 @@ class ApiService {
         // 🔧 ACTUALIZADO: Columna P (row[15]) = Observaciones según reporte del usuario
         const unidad = row[1] ? String(row[1]).trim() : '';
         const descripcion = row[5] ? String(row[5]).trim() : '';
-        const s_contrato = row[12] ? String(row[12]).trim() : '';
+        const s_contrato = row[11] ? String(row[11]).trim() : ''; // 🔧 FIX: Columna L = row[11] (no row[12])
         const fechapp = row[14] ? String(row[14]).trim() : ''; // Intentar columna O para fechapp
         const observaciones = row[15] ? String(row[15]).trim() : ''; // 🔧 FIX: Columna P = row[15]
 

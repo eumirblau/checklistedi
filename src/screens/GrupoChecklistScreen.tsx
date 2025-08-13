@@ -316,6 +316,7 @@ function GrupoChecklistScreen({ route, navigation }) {
           const newCompletado = !i.completado;
           const currentDate = new Date().toLocaleDateString('es-ES');
           const userName = usuario?.nombre || usuario || 'Usuario';
+          console.log(`✅ [TOGGLE] Item ${itemId}: ${i.completado ? 'DESMARCADO' : 'MARCADO'}`);
           return {
             ...i,
             completado: newCompletado,
@@ -535,7 +536,12 @@ function GrupoChecklistScreen({ route, navigation }) {
               {/* Toggle Switch compacto */}
               <TouchableOpacity
                 style={[styles.toggleContainerCompact, item.completado && styles.toggleContainerChecked]}
-                onPress={() => handleCheckboxChange(item.id)}
+                onPress={() => {
+                  console.log('🎯 [CLICK] TouchableOpacity presionado para item:', item.rowIndex);
+                  console.log('🎯 [CLICK] Item completo:', JSON.stringify(item, null, 2));
+                  handleCheckboxChange(item.rowIndex);
+                }}
+                activeOpacity={0.7}
               >
                 <View style={[styles.toggleSwitchCompact, item.completado && styles.toggleSwitchChecked]}>
                   <Text style={[styles.toggleTextCompact, item.completado && styles.toggleTextChecked]}>
