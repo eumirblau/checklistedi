@@ -222,16 +222,31 @@ exports.deletePhotoFromFirebase = functions.https.onRequest(async (req, res) => 
       return res.status(400).json({ error: 'Falta filePath' });
     }
 
+    console.log('🗑️ [deletePhotoFromFirebase] Intentando eliminar:', filePath);
+
     const bucket = admin.storage().bucket();
     const file = bucket.file(filePath);
     
     // Verificar si el archivo existe antes de intentar eliminarlo
     const [exists] = await file.exists();
     if (!exists) {
+      console.log('❌ [deletePhotoFromFirebase] Archivo no encontrado:', filePath);
+      
+      // Listar archivos de la carpeta para debug
+      const folderPath = filePath.substring(0, filePath.lastIndexOf('/'));
+      console.log('🔍 [deletePhotoFromFirebase] Listando contenido de carpeta:', folderPath);
+      try {
+        const [files] = await bucket.getFiles({ prefix: folderPath + '/' });
+        console.log('📁 [deletePhotoFromFirebase] Archivos encontrados:', files.map(f => f.name));
+      } catch (listError) {
+        console.log('⚠️ [deletePhotoFromFirebase] Error listando carpeta:', listError.message);
+      }
+      
       return res.status(404).json({ error: 'Archivo no encontrado' });
     }
 
     await file.delete();
+    console.log('✅ [deletePhotoFromFirebase] Archivo eliminado correctamente:', filePath);
     return res.json({ success: true, message: 'Archivo eliminado correctamente' });
   } catch (error) {
     console.error('Error en deletePhotoFromFirebase:', error);

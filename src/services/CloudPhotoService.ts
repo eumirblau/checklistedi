@@ -20,16 +20,19 @@ export class CloudPhotoService {
     fecha?: string;
     fileName: string;
   }): Promise<boolean> {
-    // Carpeta: checklist-photos/jefeGrupo/obra/instalacion/itemId/fecha/fileName
-    const fechaStr = options?.fecha || '';
-    // Usar el nombre tal cual, permitiendo espacios y caracteres
+    // Usar la misma normalización que en uploadPhoto para consistencia
+    const normalize = (str?: string) => (str ? String(str).trim().replace(/\s+/g, '_').replace(/[^\w\-]/g, '') : 'sin-obra');
     const jefeGrupo = options?.jefeGrupo ? String(options.jefeGrupo).trim() : 'sin-jefe';
-    const obra = options?.obra ? String(options.obra).trim() : 'sin-obra';
-    const instalacion = options?.instalacion ? String(options.instalacion).trim() : 'sin-instalacion';
+    const obra = normalize(options?.obra);
+    const instalacion = normalize(options?.instalacion);
     const itemId = options.itemId;
-    let folder = `checklist-photos/${jefeGrupo}/${obra}/${instalacion}/${itemId}`;
-    if (fechaStr) folder += `/${fechaStr}`;
+    
+    // Carpeta: checklist-photos/jefeGrupo/obra/instalacion/itemId (SIN fecha, igual que uploadPhoto)
+    const folder = `checklist-photos/${jefeGrupo}/${obra}/${instalacion}/${itemId}`;
     const filePath = `${folder}/${options.fileName}`;
+    
+    console.log('🗂️ [CloudPhotoService] Ruta construida para eliminar:', filePath);
+    
     // Cloud Function para eliminar archivo
     const DELETE_FUNCTION_URL = 'https://us-central1-checklistedhinor.cloudfunctions.net/deletePhotoFromFirebase';
     try {

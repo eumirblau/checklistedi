@@ -202,15 +202,41 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
                     onPress={async () => {
                       try {
                         if (modalTitle === 'Galería Firebase') {
-                          // Para fotos de Firebase, intentar eliminar de Firebase
+                          // Para fotos de Firebase, eliminar realmente de Firebase Storage
                           Alert.alert(
                             'Eliminar foto',
-                            'Esta función está temporalmente deshabilitada. Solo se eliminará de la vista local.',
+                            '¿Estás seguro de que quieres eliminar esta foto de Firebase? Esta acción no se puede deshacer.',
                             [
                               {
-                                text: 'Eliminar solo de vista',
-                                onPress: () => {
-                                  setModalPhotos(modalPhotos.filter((_, i) => i !== idx));
+                                text: 'Eliminar',
+                                style: 'destructive',
+                                onPress: async () => {
+                                  try {
+                                    console.log('🗑️ Eliminando foto:', photo.fileName);
+                                    
+                                    // Llamar al servicio para eliminar de Firebase
+                                    const success = await CloudPhotoService.deletePhotoFromFirebase({
+                                      jefeGrupo,
+                                      obra,
+                                      instalacion,
+                                      itemId: checklistName || itemId, // Usar el mismo parámetro que en uploadPhoto
+                                      fecha,
+                                      fileName: photo.fileName
+                                    });
+
+                                    if (success) {
+                                      // Eliminar de la vista local también
+                                      setModalPhotos(modalPhotos.filter((_, i) => i !== idx));
+                                      Alert.alert('Éxito', 'Foto eliminada correctamente de Firebase');
+                                      console.log('✅ Foto eliminada correctamente:', photo.fileName);
+                                    } else {
+                                      Alert.alert('Error', 'No se pudo eliminar la foto de Firebase');
+                                      console.error('❌ Error eliminando foto:', photo.fileName);
+                                    }
+                                  } catch (error) {
+                                    console.error('❌ Error al eliminar foto:', error);
+                                    Alert.alert('Error', 'Ocurrió un error al eliminar la foto');
+                                  }
                                 }
                               },
                               { text: 'Cancelar', style: 'cancel' }
@@ -230,7 +256,7 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
                     }}
                   >
                     <Text style={{ color: '#fff', fontSize: 12 }}>
-                      {modalTitle === 'Galería Firebase' ? 'Ocultar' : 'Eliminar'}
+                      Eliminar
                     </Text>
                   </TouchableOpacity>
                 </View>
