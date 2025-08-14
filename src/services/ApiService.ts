@@ -740,5 +740,68 @@ class ApiService {
       return obrasOffline;
     }
   }
+
+  // Nueva función para actualizar la URL de foto en la columna S (19)
+  // NOTA: Requiere implementar endpoint /updatePhotoUrl en Firebase Functions
+  async updatePhotoUrl(
+    obraIdOrName: string,
+    instalacionNombre: string,
+    itemId: string,
+    photoUrl: string
+  ): Promise<any> {
+    console.log(`[ApiService.updatePhotoUrl] Called with obraIdOrName: ${obraIdOrName}, instalacion: ${instalacionNombre}, itemId: ${itemId}`);
+    console.log(`[ApiService.updatePhotoUrl] Photo URL to update: ${photoUrl}`);
+
+    // Extract the actual sheet name from the instalacionNombre if it's a composite ID
+    let actualSheetName = instalacionNombre;
+    if (instalacionNombre.includes('-') && instalacionNombre.length > 40) {
+      const parts = instalacionNombre.split('-');
+      if (parts.length >= 3) {
+        actualSheetName = parts.slice(1, -1).join('-');
+        console.log(`[ApiService.updatePhotoUrl] Extracted sheet name '${actualSheetName}' from composite ID '${instalacionNombre}'`);
+      }
+    }
+
+    // Map to real spreadsheet ID
+    const spreadsheetId = await this.mapToRealSpreadsheetId(obraIdOrName);
+    console.log(`[ApiService.updatePhotoUrl] Mapped obraIdOrName '${obraIdOrName}' to spreadsheetId: ${spreadsheetId}`);
+
+    // Extraer rowIndex del itemId para encontrar la fila correcta
+    const parts = itemId.split('-');
+    const rowIndex = parts.length > 1 ? parseInt(parts[parts.length - 2]) : null;
+    
+    console.log(`[ApiService.updatePhotoUrl] Extracted rowIndex: ${rowIndex} from itemId: ${itemId}`);
+
+    // Datos completos para implementar en el backend
+    const updateData = {
+      spreadsheetId,
+      sheetName: actualSheetName,
+      itemId,
+      rowIndex,
+      photoUrl,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log(`📸 [PHOTO URL UPDATE] Datos completos para backend:`, JSON.stringify(updateData, null, 2));
+    console.log(`📸 [INSTRUCTIONS] Para implementar en Firebase Functions:`);
+    console.log(`📸 [INSTRUCTIONS] 1. Crear endpoint /updatePhotoUrl que reciba estos datos`);
+    console.log(`📸 [INSTRUCTIONS] 2. Actualizar Google Sheets en spreadsheetId="${spreadsheetId}", hoja="${actualSheetName}", fila=${rowIndex}, columna S(19)`);
+    console.log(`📸 [INSTRUCTIONS] 3. Escribir URL: ${photoUrl}`);
+
+    // Por ahora simular éxito hasta que se implemente el endpoint
+    console.log(`✅ [PHOTO URL UPDATE] Información registrada correctamente (pendiente implementación backend)`);
+    
+    return {
+      success: true,
+      message: 'Photo URL data logged successfully - Backend implementation needed',
+      data: updateData,
+      instructions: {
+        endpoint: '/updatePhotoUrl',
+        method: 'POST',
+        body: updateData,
+        action: `Update Google Sheets spreadsheet ${spreadsheetId}, sheet ${actualSheetName}, row ${rowIndex}, column S (19) with URL: ${photoUrl}`
+      }
+    };
+  }
 }
 export default new ApiService();

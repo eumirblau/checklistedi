@@ -332,13 +332,15 @@ function GrupoChecklistScreen({ route, navigation }) {
 
   // Subida de foto a Firebase y actualización local
   // Ahora handlePhotoTaken recibe la URL pública directamente desde PhotoButton
-  const handlePhotoTaken = (itemId, publicUrl) => {
+  const handlePhotoTaken = async (itemId, publicUrl) => {
     console.log('[PHOTO] handlePhotoTaken itemId:', itemId);
     console.log('[PHOTO] handlePhotoTaken publicUrl:', publicUrl);
     if (!publicUrl || typeof publicUrl !== 'string' || !publicUrl.startsWith('http')) {
       Alert.alert('Error', 'No se recibió una URL válida de la foto.');
       return;
     }
+
+    // Actualizar estado local
     const photoMetadata = {
       id: `photo_${Date.now()}`,
       url: publicUrl,
@@ -350,7 +352,26 @@ function GrupoChecklistScreen({ route, navigation }) {
       ...prevPhotos,
       [itemId]: [...(prevPhotos[itemId] || []), photoMetadata]
     }));
-    Alert.alert('Foto subida', 'La foto se subió correctamente a Firebase.');
+
+    // Actualizar URL en Google Sheets (columna S/19)
+    try {
+      console.log('[PHOTO] Preparando datos para actualización en Google Sheets...');
+      const result = await ApiService.updatePhotoUrl(
+        params.obraNombre || params.spreadsheetId,
+        instalacionNombre,
+        itemId,
+        publicUrl
+      );
+      console.log('[PHOTO] ✅ Datos preparados correctamente:', result);
+      Alert.alert(
+        'Foto subida', 
+        'La foto se subió correctamente. Los datos están listos para Google Sheets (requiere implementación backend).',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('[PHOTO] ❌ Error preparando datos:', error);
+      Alert.alert('Foto subida', 'La foto se subió correctamente.');
+    }
   };
 
   // Visualización de fotos
