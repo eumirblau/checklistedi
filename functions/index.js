@@ -105,7 +105,7 @@ exports.getItemsDeChecklist = functions.https.onRequest(async (req, res) => {
   try {
     const result = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${pestana}!A2:Z`,
+      range: `${pestana}!A2:AZ`,
     });
     res.json({ items: result.data.values });
   } catch (error) {
