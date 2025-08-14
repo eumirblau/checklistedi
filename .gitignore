@@ -81,3 +81,4 @@ firebaseConfig.js
 *.tsbuildinfo
 
 app-example
+functions/service-account.json
