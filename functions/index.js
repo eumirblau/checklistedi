@@ -441,6 +441,28 @@ exports.photoGallery = functions.https.onRequest(async (req, res) => {
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
+        }
+        
+        .header-logo {
+            position: absolute;
+            top: 20px;
+            left: 30px;
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .header-logo img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            border-radius: 50%;
         }
         
         .header h1 {
@@ -595,12 +617,29 @@ exports.photoGallery = functions.https.onRequest(async (req, res) => {
             .header h1 { font-size: 2em; }
             .gallery-grid { grid-template-columns: 1fr; }
             .info-grid { grid-template-columns: 1fr; }
+            .header-logo {
+                width: 60px;
+                height: 60px;
+                top: 15px;
+                left: 15px;
+            }
+            .header-logo img {
+                width: 45px;
+                height: 45px;
+            }
+            .header {
+                padding: 20px 20px 20px 90px;
+                text-align: left;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
+            <div class="header-logo">
+                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiByeD0iNTAiIGZpbGw9IiMyYzNlNTAiLz4KPHRleHQgeD0iNTAiIHk9IjM1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE4IiBmb250LXdlaWdodD0iYm9sZCI+RURISUlOT1I8L3RleHQ+Cjx0ZXh0IHg9IjUwIiB5PSI3MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzM0OThkYiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwIj5HYWxlcsOtYSBkZSBGb3RvczwvdGV4dD4KPC9zdmc+" alt="Edhinor Logo" />
+            </div>
             <h1>📷 Galería de Fotos</h1>
             <div class="subtitle">${item}</div>
         </div>
