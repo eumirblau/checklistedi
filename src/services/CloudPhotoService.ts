@@ -199,6 +199,57 @@ export class CloudPhotoService {
     }
   }
 
+  // Método para renombrar foto en Firebase Storage
+  static async renamePhoto(options: {
+    jefeGrupo?: string;
+    obra?: string;
+    instalacion?: string;
+    itemId: string;
+    oldFileName: string;
+    newFileName: string;
+  }): Promise<boolean> {
+    try {
+      // Usar la misma normalización que en uploadPhoto para consistencia
+      const normalize = (str?: string) => (str ? String(str).trim().replace(/\s+/g, '_').replace(/[^\w\-]/g, '') : 'sin-obra');
+      const jefeGrupo = options?.jefeGrupo ? String(options.jefeGrupo).trim() : 'sin-jefe';
+      const obra = normalize(options?.obra);
+      const instalacion = normalize(options?.instalacion);
+      const itemId = options.itemId;
+      
+      // Construir rutas
+      const folder = `checklist-photos/${jefeGrupo}/${obra}/${instalacion}/${itemId}`;
+      const oldFilePath = `${folder}/${options.oldFileName}`;
+      
+      // Cloud Function para renombrar archivo
+      const RENAME_FUNCTION_URL = 'https://us-central1-checklistedhinor.cloudfunctions.net/renamePhoto';
+      
+      const response = await fetch(RENAME_FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          oldFilePath,
+          newFileName: options.newFileName  // Solo el nombre del archivo, no la ruta completa
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [CloudPhotoService] Error HTTP:', response.status, errorText);
+        throw new Error(`Error renombrando foto: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('📋 [CloudPhotoService] Respuesta:', result);
+      return result.success === true;
+      
+    } catch (error) {
+      console.error('❌ [CloudPhotoService] Error en renamePhoto:', error);
+      throw error; // Re-lanzar el error en lugar de retornar false
+    }
+  }
+
   // Método para validar URI de foto
   static isValidPhotoUri(uri: string): boolean {
     return uri && (uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('http'));

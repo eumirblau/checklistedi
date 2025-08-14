@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Storage security rules for checklistedi
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Permitir acceso a todas las operaciones para archivos de checklist
+    // En producción se debería restringir más, pero para desarrollo permitimos todo
+    match /{allPaths=**} {
+      allow read, write, delete: if true;
+    }
+    
+    // Reglas específicas para la estructura de carpetas del checklist
+    match /checklist/{jefeGrupo}/{obra}/{instalacion}/{item}/{fecha}/{fileName} {
+      allow read, write, delete: if true;
+    }
+    
+    // Permitir acceso a las imágenes de la galería web
+    match /gallery/{allPaths=**} {
+      allow read: if true;
+    }
+  }
+}

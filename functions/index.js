@@ -105,7 +105,7 @@ exports.getItemsDeChecklist = functions.https.onRequest(async (req, res) => {
   try {
     const result = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${pestana}!A2:AZ`,
+      range: `${pestana}!A2:Z`,
     });
     res.json({ items: result.data.values });
   } catch (error) {
@@ -354,6 +354,75 @@ exports.getFolderUrl = functions.https.onRequest(async (req, res) => {
 });
 
 // =====================
+// Renombrar foto
+// =====================
+exports.renamePhoto = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Método no permitido' });
+    return;
+  }
+  
+  try {
+    const { oldFilePath, newFileName } = req.body;
+    
+    if (!oldFilePath || !newFileName) {
+      res.status(400).json({ error: 'oldFilePath y newFileName son requeridos' });
+      return;
+    }
+    
+    console.log(`🔄 [renamePhoto] Iniciando renombrado:`);
+    console.log(`📄 Archivo original: ${oldFilePath}`);
+    console.log(`📝 Nuevo nombre: ${newFileName}`);
+    
+    const bucket = admin.storage().bucket();
+    const oldFile = bucket.file(oldFilePath);
+    
+    // Verificar que el archivo existe
+    const [exists] = await oldFile.exists();
+    if (!exists) {
+      res.status(404).json({ error: 'Archivo no encontrado' });
+      return;
+    }
+    
+    // Crear el nuevo path manteniendo la estructura de carpetas
+    const pathParts = oldFilePath.split('/');
+    pathParts[pathParts.length - 1] = newFileName; // Reemplazar solo el nombre del archivo
+    const newFilePath = pathParts.join('/');
+    
+    console.log(`📂 Nuevo path: ${newFilePath}`);
+    
+    // Copiar archivo al nuevo nombre
+    const newFile = bucket.file(newFilePath);
+    await oldFile.copy(newFile);
+    console.log(`✅ Archivo copiado exitosamente`);
+    
+    // Eliminar archivo original
+    await oldFile.delete();
+    console.log(`🗑️ Archivo original eliminado`);
+    
+    res.json({
+      success: true,
+      oldFilePath,
+      newFilePath,
+      message: 'Archivo renombrado exitosamente'
+    });
+    
+  } catch (error) {
+    console.error(`❌ [renamePhoto] Error:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================
 // Galería web pública de fotos
 // =====================
 exports.photoGallery = functions.https.onRequest(async (req, res) => {
@@ -446,23 +515,23 @@ exports.photoGallery = functions.https.onRequest(async (req, res) => {
         
         .header-logo {
             position: absolute;
-            top: 15px;
-            left: 20px;
-            width: 160px;
-            height: 40px;
+            top: 20px;
+            left: 30px;
+            width: 80px;
+            height: 80px;
             background: white;
-            border-radius: 8px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            padding: 6px 12px;
         }
         
         .header-logo img {
-            width: 100%;
-            height: 100%;
+            width: 60px;
+            height: 60px;
             object-fit: contain;
+            border-radius: 50%;
         }
         
         .header h1 {
@@ -638,7 +707,7 @@ exports.photoGallery = functions.https.onRequest(async (req, res) => {
     <div class="container">
         <div class="header">
             <div class="header-logo">
-                <img src="https://firebasestorage.googleapis.com/v0/b/checklistedhinor.firebasestorage.app/o/assets%2Fedhinor-logo.png?alt=media" alt="EDHINOR Logo" />
+                <img src="data:image/jpeg;base64,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" alt="Edhinor Logo" />
             </div>
             <h1>📷 Galería de Fotos</h1>
             <div class="subtitle">${item}</div>
@@ -1019,4 +1088,3 @@ exports.guardarChecks = functions.https.onRequest(async (req, res) => {
     }
   }
 });
-

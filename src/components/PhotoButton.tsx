@@ -1,7 +1,7 @@
 
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { CloudPhotoService } from '../services/CloudPhotoService';
 
 export interface PhotoMetadata {
@@ -44,8 +44,71 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
   const [modalPhotos, setModalPhotos] = useState<PhotoMetadata[]>([]);
   const [modalTitle, setModalTitle] = useState('');
   const [zoomPhoto, setZoomPhoto] = useState<PhotoMetadata | null>(null);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [photoToRename, setPhotoToRename] = useState<PhotoMetadata | null>(null);
+  const [newFileName, setNewFileName] = useState('');
 
   // El modal solo se actualiza cuando el usuario lo solicita explícitamente
+
+  const handleRenamePhoto = async () => {
+    if (!photoToRename || !newFileName.trim()) {
+      Alert.alert('Error', 'Por favor ingresa un nombre válido');
+      return;
+    }
+
+    try {
+      console.log('🔄 Renombrando foto:', photoToRename.fileName, 'a:', newFileName);
+      console.log('📂 Parámetros:', {
+        jefeGrupo,
+        obra,
+        instalacion,
+        itemId: checklistName || itemId,
+        oldFileName: photoToRename.fileName
+      });
+      
+      // Agregar extensión si no la tiene
+      const extension = photoToRename.fileName.split('.').pop();
+      const finalFileName = newFileName.includes('.') ? newFileName : `${newFileName}.${extension}`;
+      
+      console.log('📝 Nombre final con extensión:', finalFileName);
+      
+      try {
+        const success = await CloudPhotoService.renamePhoto({
+          jefeGrupo,
+          obra,
+          instalacion,
+          itemId: checklistName || itemId,
+          oldFileName: photoToRename.fileName,
+          newFileName: finalFileName
+        });
+        
+        if (success) {
+          // Actualizar la foto en la lista local
+          const updatedPhotos = modalPhotos.map(photo => 
+            photo.id === photoToRename.id 
+              ? { ...photo, fileName: finalFileName, path: photo.path.replace(photoToRename.fileName, finalFileName) }
+              : photo
+          );
+          setModalPhotos(updatedPhotos);
+          
+          Alert.alert('Éxito', 'Foto renombrada correctamente');
+          setRenameModalVisible(false);
+          setPhotoToRename(null);
+          setNewFileName('');
+          console.log('✅ Foto renombrada correctamente');
+        } else {
+          Alert.alert('Error', 'No se pudo renombrar la foto. Respuesta inesperada del servidor.');
+          console.error('❌ Error renombrando foto: función retornó false');
+        }
+      } catch (serviceError) {
+        console.error('❌ Error del servicio:', serviceError);
+        Alert.alert('Error', `No se pudo renombrar la foto: ${serviceError.message || serviceError}`);
+      }
+    } catch (error) {
+      console.error('❌ Error al renombrar foto:', error);
+      Alert.alert('Error', `Ocurrió un error al renombrar la foto: ${error.message || error}`);
+    }
+  };
 
   const handleAddPhoto = () => {
     Alert.alert(
@@ -247,11 +310,26 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
                       Usuario: {photo.fileName.split('_by_')[1].split('.')[0]}
                     </Text>
                   )}
+                  {/* Botón Renombrar - Solo para fotos de Firebase */}
+                  {modalTitle.includes('Galería Firebase') && (
+                    <TouchableOpacity
+                      style={{ marginTop: 4, backgroundColor: '#3498db', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}
+                      onPress={() => {
+                        setPhotoToRename(photo);
+                        setNewFileName(photo.fileName.split('.')[0]); // Sin extensión por defecto
+                        setRenameModalVisible(true);
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 12 }}>
+                        Renombrar
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={{ marginTop: 4, backgroundColor: '#e74c3c', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}
                     onPress={async () => {
                       try {
-                        if (modalTitle === 'Galería Firebase') {
+                        if (modalTitle.includes('Galería Firebase')) {
                           // Para fotos de Firebase, eliminar realmente de Firebase Storage
                           Alert.alert(
                             'Eliminar foto',
@@ -331,6 +409,75 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
             <TouchableOpacity style={{ alignSelf: 'center', backgroundColor: '#3498db', padding: 10, borderRadius: 8 }} onPress={() => setModalVisible(false)}>
               <Text style={{ color: '#fff', fontWeight: 'bold' }}>Cerrar</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal para renombrar foto */}
+      <Modal 
+        visible={renameModalVisible} 
+        animationType="slide" 
+        transparent 
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 20, width: '85%' }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' }}>
+              Renombrar Foto
+            </Text>
+            <Text style={{ fontSize: 14, color: '#666', marginBottom: 10 }}>
+              Nombre actual: {photoToRename?.fileName}
+            </Text>
+            <TextInput
+              style={{
+                borderWidth: 1,
+                borderColor: '#ddd',
+                borderRadius: 8,
+                padding: 12,
+                fontSize: 16,
+                marginBottom: 20
+              }}
+              value={newFileName}
+              onChangeText={setNewFileName}
+              placeholder="Nuevo nombre de la foto"
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#e74c3c',
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  flex: 1,
+                  marginRight: 10
+                }}
+                onPress={() => {
+                  setRenameModalVisible(false);
+                  setPhotoToRename(null);
+                  setNewFileName('');
+                }}
+              >
+                <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#27ae60',
+                  paddingHorizontal: 20,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  flex: 1,
+                  marginLeft: 10
+                }}
+                onPress={handleRenamePhoto}
+              >
+                <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>
+                  Renombrar
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

@@ -119,12 +119,7 @@ function GrupoChecklistScreen({ route, navigation }) {
       for (const item of freshData) {
         const unidad = item.unidad?.trim() || '';
         const descripcion = item.descripcion?.trim().toUpperCase() || '';
-        
-        // Condiciones mejoradas para detectar encabezados (igual que en ChecklistScreen):
-        const palabrasEnMayusculas = unidad.split(/\s+/).filter(p => p === p.toUpperCase() && p.length > 1);
-        const esMayoritariamenteMayusculas = palabrasEnMayusculas.length >= Math.ceil(unidad.split(/\s+/).length * 0.6);
-        const noEsItem = !unidad.includes('√') && !unidad.includes('X') && !unidad.includes('•');
-        const esEncabezado = unidad.length > 2 && esMayoritariamenteMayusculas && noEsItem;
+        const esEncabezado = unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2;
         
         if (
           unidad && esEncabezado && unidad !== ultimoEncabezado
@@ -153,13 +148,7 @@ function GrupoChecklistScreen({ route, navigation }) {
             const idUnico = item.rowIndex || item.id;
             const descripcion = (item.descripcion || '').trim().toLowerCase();
             const unidad = (item.unidad || '').trim();
-            
-            // Usar la misma lógica mejorada para detectar encabezados
-            const palabrasEnMayusculas = unidad.split(/\s+/).filter(p => p === p.toUpperCase() && p.length > 1);
-            const esMayoritariamenteMayusculas = palabrasEnMayusculas.length >= Math.ceil(unidad.split(/\s+/).length * 0.6);
-            const noEsItem = !unidad.includes('√') && !unidad.includes('X') && !unidad.includes('•');
-            const esEncabezado = unidad.length > 2 && esMayoritariamenteMayusculas && noEsItem;
-            
+            const esEncabezado = unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2;
             const valido = !vistos.has(idUnico) && descripcion !== 'no check' && unidad !== '' && !esEncabezado;
             if (valido) {
               vistos.add(idUnico);
@@ -457,13 +446,7 @@ function GrupoChecklistScreen({ route, navigation }) {
         const itemsChequeables = items.filter(item => {
           const descripcion = (item.descripcion || '').trim().toLowerCase();
           const unidad = (item.unidad || '').trim();
-          
-          // Usar la misma lógica mejorada para detectar encabezados
-          const palabrasEnMayusculas = unidad.split(/\s+/).filter(p => p === p.toUpperCase() && p.length > 1);
-          const esMayoritariamenteMayusculas = palabrasEnMayusculas.length >= Math.ceil(unidad.split(/\s+/).length * 0.6);
-          const noEsItem = !unidad.includes('√') && !unidad.includes('X') && !unidad.includes('•');
-          const esEncabezado = unidad.length > 2 && esMayoritariamenteMayusculas && noEsItem;
-          
+          const esEncabezado = unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2;
           const valido = descripcion !== 'no check' && unidad !== '' && !esEncabezado && item.rowIndex && !vistosRowIndex.has(item.rowIndex);
           if (valido) {
             vistosRowIndex.add(item.rowIndex);
