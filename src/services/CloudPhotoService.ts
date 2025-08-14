@@ -31,8 +31,6 @@ export class CloudPhotoService {
     const folder = `checklist-photos/${jefeGrupo}/${obra}/${instalacion}/${itemId}`;
     const filePath = `${folder}/${options.fileName}`;
     
-    console.log('🗂️ [CloudPhotoService] Ruta construida para eliminar:', filePath);
-    
     // Cloud Function para eliminar archivo
     const DELETE_FUNCTION_URL = 'https://us-central1-checklistedhinor.cloudfunctions.net/deletePhotoFromFirebase';
     try {
@@ -50,7 +48,6 @@ export class CloudPhotoService {
       const result = await response.json();
       return result.success === true;
     } catch (error) {
-      console.error('❌ [CloudPhotoService] Error eliminando foto:', error);
       return false;
     }
   }
@@ -70,15 +67,6 @@ export class CloudPhotoService {
     // Carpeta completa: checklist-photos/jefeGrupo/obra/instalacion/itemId
     const folder = `checklist-photos/${jefeGrupo}/${obra}/${instalacion}/${options.itemId}`;
     
-    console.log('📂 [CloudPhotoService] Listando fotos en:', folder);
-    console.log('📂 [CloudPhotoService] Parámetros completos:', {
-      jefeGrupo,
-      obra,
-      instalacion,
-      itemId: options.itemId,
-      fecha: options.fecha
-    });
-    
     // Supongamos que tienes una Cloud Function que lista los archivos de una carpeta
     const LIST_FUNCTION_URL = 'https://us-central1-checklistedhinor.cloudfunctions.net/listphotosinfolder';
     try {
@@ -92,11 +80,9 @@ export class CloudPhotoService {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.warn(`⚠️ [CloudPhotoService] Error listando fotos (${response.status}):`, errorText);
         
         // Si es un error del servidor interno, devolver array vacío en lugar de fallar
         if (response.status === 500) {
-          console.log('📂 [CloudPhotoService] Error interno del servidor, devolviendo array vacío');
           return [];
         }
         
@@ -104,15 +90,6 @@ export class CloudPhotoService {
       }
       
       const result = await response.json();
-      console.log('✅ [CloudPhotoService] Respuesta completa de listphotosinfolder:', JSON.stringify(result, null, 2));
-      console.log('✅ [CloudPhotoService] Fotos listadas:', result.photos?.length || 0);
-      
-      if (result.photos && result.photos.length > 0) {
-        console.log('📂 [CloudPhotoService] Detalles de fotos encontradas:');
-        result.photos.forEach((photo: any, index: number) => {
-          console.log(`  ${index + 1}. ${photo.fileName} - ${photo.url}`);
-        });
-      }
       
       // Espera un array de objetos { url, fileName, uploadedAt }
       return (result.photos || []).map((photo: any) => ({
@@ -123,7 +100,6 @@ export class CloudPhotoService {
         fileName: photo.fileName
       }));
     } catch (error) {
-      console.error('❌ [CloudPhotoService] Error listando fotos:', error);
       // En lugar de fallar completamente, devolver array vacío para mejor UX
       return [];
     }
@@ -149,7 +125,6 @@ export class CloudPhotoService {
     fecha?: string;
   }): Promise<PhotoMetadata> {
     try {
-      console.log('📤 [CloudPhotoService] Iniciando upload de foto:', photoUri);
       // 1. Convertir URI local a Base64
       const base64 = await this.convertUriToBase64(photoUri);
       // 2. Generar nombre único del archivo
