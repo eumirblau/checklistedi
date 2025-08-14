@@ -446,23 +446,23 @@ exports.photoGallery = functions.https.onRequest(async (req, res) => {
         
         .header-logo {
             position: absolute;
-            top: 20px;
-            left: 30px;
-            width: 80px;
-            height: 80px;
+            top: 15px;
+            left: 20px;
+            width: 160px;
+            height: 40px;
             background: white;
-            border-radius: 50%;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            padding: 6px 12px;
         }
         
         .header-logo img {
-            width: 60px;
-            height: 60px;
+            width: 100%;
+            height: 100%;
             object-fit: contain;
-            border-radius: 50%;
         }
         
         .header h1 {
@@ -638,7 +638,7 @@ exports.photoGallery = functions.https.onRequest(async (req, res) => {
     <div class="container">
         <div class="header">
             <div class="header-logo">
-                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDEwMCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiByeD0iNTAiIGZpbGw9IiMyYzNlNTAiLz4KPHRleHQgeD0iNTAiIHk9IjM1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE4IiBmb250LXdlaWdodD0iYm9sZCI+RURISUlOT1I8L3RleHQ+Cjx0ZXh0IHg9IjUwIiB5PSI3MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzM0OThkYiIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwIj5HYWxlcsOtYSBkZSBGb3RvczwvdGV4dD4KPC9zdmc+" alt="Edhinor Logo" />
+                <img src="https://firebasestorage.googleapis.com/v0/b/checklistedhinor.firebasestorage.app/o/assets%2Fedhinor-logo.png?alt=media" alt="EDHINOR Logo" />
             </div>
             <h1>📷 Galería de Fotos</h1>
             <div class="subtitle">${item}</div>
@@ -1019,3 +1019,4 @@ exports.guardarChecks = functions.https.onRequest(async (req, res) => {
     }
   }
 });
+
