@@ -23,6 +23,7 @@ export const STORAGE_CONFIG = {
 // Debug logs
 export const enableDebugLogs = true;
 
+// FIREBASE RESTAURADO - Cloud Storage SIN conflictos
 import { initializeApp } from 'firebase/app';
 import { getStorage } from 'firebase/storage';
 

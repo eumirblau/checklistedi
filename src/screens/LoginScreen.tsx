@@ -62,7 +62,7 @@ const LoginScreen = ({ navigation }: Props) => {
         <View style={styles.headerContainer}>
           <View style={styles.logoContainer}>
             <Image
-              source={require('../../assets/edhinor-logo.jpg')}
+              source={require('../../../assets/edhinor-logo.jpg')}
               style={styles.companyLogo}
               resizeMode="contain"
             />

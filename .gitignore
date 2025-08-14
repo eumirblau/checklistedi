@@ -16,6 +16,8 @@ src/components/ui/
 src/services/FirebaseStorageReal.ts
 
 # Native
+/android
+/ios
 .kotlin/
 *.orig.*
 *.jks
