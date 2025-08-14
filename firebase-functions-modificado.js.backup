@@ -11,7 +11,30 @@ const { google } = require('googleapis');
 const path = require('path');
 const fs = require('fs');
 const logger = require("firebase-functions/logger");
-const { setGlobalOptions } = require("firebase-functions");
+const { set      // 📂 EXTRAER INFORMACIÓN DE LA URL DE FOTO PARA GENERAR URL DE CARPETA
+      // Ejemplo: https://firebasestorage.googleapis.com/.../checklist-photos%2FMonserrat%2FCentro_de_Mayores_Los_Almendros%2FBT%2FAérea%20ó%20enterrada%2FAérea%20ó%20enterrada_1755178111266.jpg
+      
+      const urlPattern = /checklist-photos%2F([^%]+)%2F([^%]+)%2F([^%]+)%2F([^%]+)%2F/;
+      const match = photoUrl.match(urlPattern);
+      
+      if (match) {
+        const jefeGrupo = decodeURIComponent(match[1]);
+        const obra = decodeURIComponent(match[2]).replace(/_/g, ' ');
+        const instalacion = decodeURIComponent(match[3]);
+        const itemIdFromUrl = decodeURIComponent(match[4]).replace(/%20/g, ' ');
+        
+        console.log(`📂 [FOTO UPDATE] Datos extraídos: jefe=${jefeGrupo}, obra=${obra}, instalacion=${instalacion}, item=${itemIdFromUrl}`);
+        
+        // Construir el path de la carpeta
+        const folderPath = `checklist-photos/${jefeGrupo}/${obra.replace(/\s+/g, '_')}/${instalacion}/${itemIdFromUrl}`;
+        
+        // Generar URL de Firebase Console para la carpeta
+        const bucketName = 'checklistedhinor.firebasestorage.app';
+        const encodedFolderPath = encodeURIComponent(folderPath.replace(/\//g, '%2F'));
+        const folderUrl = `https://console.firebase.google.com/project/checklistedhinor/storage/${bucketName}/files~2F${encodedFolderPath}`;
+        
+        console.log(`📂 [FOTO UPDATE] Carpeta: ${folderPath}`);
+        console.log(`📂 [FOTO UPDATE] URL de carpeta: ${folderUrl}`);= require("firebase-functions");
 const { onRequest } = require("firebase-functions/https");
 admin.initializeApp();
 
@@ -354,349 +377,6 @@ exports.getFolderUrl = functions.https.onRequest(async (req, res) => {
 });
 
 // =====================
-// Galería web pública de fotos
-// =====================
-exports.photoGallery = functions.https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-
-  try {
-    const { jefe, obra, instalacion, item } = req.query;
-    
-    if (!jefe || !obra || !instalacion || !item) {
-      return res.status(400).send('Faltan parámetros: jefe, obra, instalacion, item');
-    }
-
-    // Normalizar nombres para carpetas (misma lógica que CloudPhotoService)
-    const normalize = (str) => (str ? String(str).trim().replace(/\s+/g, '_').replace(/[^\w\-]/g, '') : 'sin-obra');
-    const jefeGrupoNorm = String(jefe).trim();
-    const obraNorm = normalize(obra);
-    const instalacionNorm = normalize(instalacion);
-    
-    // Construir el path de la carpeta
-    const folderPath = `checklist-photos/${jefeGrupoNorm}/${obraNorm}/${instalacionNorm}/${item}`;
-    
-    console.log(`📷 [photoGallery] Mostrando galería para: ${folderPath}`);
-
-    // Obtener las fotos de la carpeta
-    const bucket = admin.storage().bucket();
-    const [files] = await bucket.getFiles({ prefix: folderPath + '/' });
-    
-    // Filtrar solo archivos de imagen
-    const imageFiles = files.filter(file => {
-      const isImageFile = /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
-      const isNotFolder = !file.name.endsWith('/');
-      const isInCorrectFolder = file.name.startsWith(folderPath + '/');
-      return isImageFile && isNotFolder && isInCorrectFolder;
-    });
-    
-    // Generar URLs públicas para las fotos
-    const photos = imageFiles.map(file => {
-      const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(file.name)}?alt=media`;
-      const fileName = file.name.split('/').pop();
-      return { fileName, url, fullPath: file.name };
-    });
-
-    console.log(`📷 [photoGallery] ${photos.length} fotos encontradas`);
-
-    // Generar HTML de la galería
-    const html = `
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Galería de Fotos - ${item}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #2c3e50, #3498db);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 700;
-        }
-        
-        .header .subtitle {
-            font-size: 1.2em;
-            opacity: 0.9;
-            font-weight: 300;
-        }
-        
-        .info {
-            background: #f8f9fa;
-            padding: 20px 30px;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        
-        .info-item {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .info-label {
-            font-weight: 600;
-            color: #495057;
-            font-size: 0.9em;
-            margin-bottom: 5px;
-        }
-        
-        .info-value {
-            color: #2c3e50;
-            font-size: 1.1em;
-        }
-        
-        .gallery {
-            padding: 30px;
-        }
-        
-        .gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
-        
-        .photo-card {
-            background: white;
-            border-radius: 15px;
-            overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .photo-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-        }
-        
-        .photo-card img {
-            width: 100%;
-            height: 250px;
-            object-fit: cover;
-            transition: transform 0.3s ease;
-        }
-        
-        .photo-card:hover img {
-            transform: scale(1.05);
-        }
-        
-        .photo-info {
-            padding: 20px;
-        }
-        
-        .photo-name {
-            font-weight: 600;
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-        
-        .photo-date {
-            color: #6c757d;
-            font-size: 0.9em;
-        }
-        
-        .no-photos {
-            text-align: center;
-            padding: 60px 30px;
-            color: #6c757d;
-        }
-        
-        .no-photos-icon {
-            font-size: 4em;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.9);
-            animation: fadeIn 0.3s ease;
-        }
-        
-        .modal-content {
-            position: relative;
-            margin: 5% auto;
-            max-width: 90%;
-            max-height: 90%;
-        }
-        
-        .modal img {
-            width: 100%;
-            height: auto;
-            border-radius: 10px;
-        }
-        
-        .close {
-            position: absolute;
-            top: -40px;
-            right: 0;
-            color: white;
-            font-size: 30px;
-            font-weight: bold;
-            cursor: pointer;
-            background: rgba(0,0,0,0.5);
-            padding: 5px 15px;
-            border-radius: 50%;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        @media (max-width: 768px) {
-            .header h1 { font-size: 2em; }
-            .gallery-grid { grid-template-columns: 1fr; }
-            .info-grid { grid-template-columns: 1fr; }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📷 Galería de Fotos</h1>
-            <div class="subtitle">${item}</div>
-        </div>
-        
-        <div class="info">
-            <div class="info-grid">
-                <div class="info-item">
-                    <div class="info-label">👨‍💼 Jefe de Grupo</div>
-                    <div class="info-value">${jefe}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">🏗️ Obra</div>
-                    <div class="info-value">${obra}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">⚡ Instalación</div>
-                    <div class="info-value">${instalacion}</div>
-                </div>
-                <div class="info-item">
-                    <div class="info-label">📋 Elemento</div>
-                    <div class="info-value">${item}</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="gallery">
-            ${photos.length > 0 ? `
-                <div class="gallery-grid">
-                    ${photos.map((photo, index) => `
-                        <div class="photo-card" onclick="openModal('${photo.url}', '${photo.fileName}')">
-                            <img src="${photo.url}" alt="${photo.fileName}" loading="lazy">
-                            <div class="photo-info">
-                                <div class="photo-name">${photo.fileName}</div>
-                                <div class="photo-date">Foto ${index + 1} de ${photos.length}</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            ` : `
-                <div class="no-photos">
-                    <div class="no-photos-icon">📸</div>
-                    <h3>No hay fotos disponibles</h3>
-                    <p>Aún no se han subido fotos para este elemento.</p>
-                </div>
-            `}
-        </div>
-    </div>
-    
-    <!-- Modal para vista ampliada -->
-    <div id="photoModal" class="modal" onclick="closeModal()">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <img id="modalImage" src="" alt="">
-        </div>
-    </div>
-    
-    <script>
-        function openModal(imageUrl, imageName) {
-            const modal = document.getElementById('photoModal');
-            const modalImg = document.getElementById('modalImage');
-            modal.style.display = 'block';
-            modalImg.src = imageUrl;
-            modalImg.alt = imageName;
-        }
-        
-        function closeModal() {
-            document.getElementById('photoModal').style.display = 'none';
-        }
-        
-        // Cerrar modal con tecla Escape
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Escape') {
-                closeModal();
-            }
-        });
-    </script>
-</body>
-</html>`;
-
-    res.set('Content-Type', 'text/html; charset=utf-8');
-    res.send(html);
-    
-  } catch (error) {
-    console.error(`❌ [photoGallery] Error:`, error);
-    res.status(500).send(`
-      <html>
-        <body style="font-family: Arial; text-align: center; padding: 50px;">
-          <h2>Error al cargar la galería</h2>
-          <p>${error.message}</p>
-        </body>
-      </html>
-    `);
-  }
-});
-
-// =====================
 // Utilidades y constantes
 // =====================
 const keyFilePath = path.resolve(__dirname, 'service-account.json');
@@ -785,17 +465,8 @@ exports.guardarChecks = functions.https.onRequest(async (req, res) => {
   const spreadsheetId = MAPEO_NOMBRES_A_IDS[spreadsheetIdOriginal] || spreadsheetIdOriginal;
   console.log(`Mapeo guardarChecks: "${spreadsheetIdOriginal}" -> "${spreadsheetId}"`);
 
-  // ✅ DEBUG: LOGGING DE PARÁMETROS RECIBIDOS
-  console.log(`🔍 [FOTO DEBUG] Parámetros recibidos:`);
-  console.log(`🔍 [FOTO DEBUG] - isPhotoUpdate: ${isPhotoUpdate} (tipo: ${typeof isPhotoUpdate})`);
-  console.log(`🔍 [FOTO DEBUG] - updatePhotoOnly: ${updatePhotoOnly} (tipo: ${typeof updatePhotoOnly})`);
-  console.log(`🔍 [FOTO DEBUG] - photoUrl: ${photoUrl} (tipo: ${typeof photoUrl})`);
-  console.log(`🔍 [FOTO DEBUG] - itemId: ${itemId} (tipo: ${typeof itemId})`);
-  console.log(`🔍 [FOTO DEBUG] - items array length: ${Array.isArray(items) ? items.length : 'not array'}`);
-  console.log(`🔍 [FOTO DEBUG] - Condición completa: ${isPhotoUpdate && updatePhotoOnly && photoUrl && itemId}`);
-
-  // ✅ DETECTAR SI ES UNA ACTUALIZACIÓN DE FOTO (FORZAR SIEMPRE POR AHORA PARA DEBUG)
-  if ((isPhotoUpdate && updatePhotoOnly && photoUrl && itemId) || (photoUrl && itemId)) {
+  // ✅ DETECTAR SI ES UNA ACTUALIZACIÓN DE FOTO
+  if (isPhotoUpdate && updatePhotoOnly && photoUrl && itemId) {
     console.log(`🔥 [FOTO UPDATE] Actualizando URL de carpeta para item ${itemId}`);
     
     try {
@@ -815,49 +486,34 @@ exports.guardarChecks = functions.https.onRequest(async (req, res) => {
         // Extraer la carpeta padre (sin el nombre del archivo)
         const folderPath = decodedPath.substring(0, decodedPath.lastIndexOf('/'));
         
-        // ✅ EXTRAER PARÁMETROS DE LA CARPETA PARA LA GALERÍA WEB
-        // folderPath formato: "checklist-photos/Monserrat/Centro_de_Mayores_Los_Almendros/BT/Tipo de aislamiento"
-        const pathParts = folderPath.split('/');
-        if (pathParts.length >= 5) {
-          const jefeGrupo = pathParts[1];
-          const obra = pathParts[2].replace(/_/g, ' ');
-          const instalacion = pathParts[3];
-          const item = pathParts[4];
-          
-          // ✅ CREAR URL DE GALERÍA WEB PÚBLICA
-          const galleryUrl = `https://us-central1-checklistedhinor.cloudfunctions.net/photoGallery?jefe=${encodeURIComponent(jefeGrupo)}&obra=${encodeURIComponent(obra)}&instalacion=${encodeURIComponent(instalacion)}&item=${encodeURIComponent(item)}`;
-          
-          console.log(`🎨 [FOTO UPDATE] URL de galería web generada: ${galleryUrl}`);
-          console.log(`📂 [FOTO UPDATE] Carpeta de fotos: ${folderPath}`);
-          
-          // Actualizar la columna S (URL_FOTOS) con la URL de la galería web
-          const photoUpdateData = [{
-            range: `${pestana}!${columnIndexToLetter(COL_URL_FOTOS)}${itemId}`,
-            values: [[galleryUrl]],
-          }];
-          
-          await sheets.spreadsheets.values.batchUpdate({
-            spreadsheetId: spreadsheetId,
-            resource: {
-              valueInputOption: 'USER_ENTERED',
-              data: photoUpdateData,
-            },
-          });
-          
-          console.log(`✅ [FOTO UPDATE] URL de galería web actualizada correctamente en fila ${itemId}, columna S`);
-          return res.status(200).json({ 
-            success: true, 
-            message: `URL de galería web de fotos actualizada correctamente para item ${itemId}`,
-            photoUrl: galleryUrl,  // ✅ URL de galería web pública
-            galleryUrl: galleryUrl,
-            folderPath: folderPath
-          });
-        } else {
-          console.error(`❌ [FOTO UPDATE] Estructura de carpeta inválida: ${folderPath}`);
-          return res.status(400).json({ 
-            error: `Estructura de carpeta inválida: ${folderPath}` 
-          });
-        }
+        // Crear URL de la carpeta en Firebase Console
+        const bucketName = 'checklistedhinor.firebasestorage.app';
+        const folderUrl = `https://console.firebase.google.com/project/checklistedhinor/storage/${bucketName}/files~2F${encodeURIComponent(folderPath.replace(/\//g, '%2F'))}`;
+        
+        console.log(`� [FOTO UPDATE] URL de carpeta generada: ${folderUrl}`);
+        console.log(`� [FOTO UPDATE] Carpeta de fotos: ${folderPath}`);
+        
+        // Actualizar la columna S (URL_FOTOS) con la URL de la carpeta
+        const photoUpdateData = [{
+          range: `${pestana}!${columnIndexToLetter(COL_URL_FOTOS)}${itemId}`,
+          values: [[folderUrl]],
+        }];
+        
+        await sheets.spreadsheets.values.batchUpdate({
+          spreadsheetId: spreadsheetId,
+          resource: {
+            valueInputOption: 'USER_ENTERED',
+            data: photoUpdateData,
+          },
+        });
+        
+        console.log(`✅ [FOTO UPDATE] URL de carpeta actualizada correctamente en fila ${itemId}, columna S`);
+        return res.status(200).json({ 
+          success: true, 
+          message: `URL de carpeta de fotos actualizada correctamente para item ${itemId}`,
+          folderUrl: folderUrl,
+          folderPath: folderPath
+        });
       } else {
         console.error(`❌ [FOTO UPDATE] No se pudo extraer el path de la foto: ${photoUrl}`);
         return res.status(400).json({ 

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import PhotoButton from '../components/PhotoButton';
 import VoiceButton from '../components/VoiceButton';
@@ -243,6 +243,105 @@ function GrupoChecklistScreen({ route, navigation }) {
     loadGroupItems();
   }, []);
 
+  // ✅ NUEVA FUNCIÓN: Cargar fotos existentes desde Firebase para todos los items
+  const loadExistingPhotos = React.useCallback(async () => {
+    if (!items || items.length === 0) return;
+    
+    console.log('📂 [LOAD PHOTOS] Cargando fotos existentes para', items.length, 'items...');
+    console.log('📂 [LOAD PHOTOS] Parámetros globales:', {
+      jefeNombre: jefeNombre || 'sin-jefe',
+      obraNombre: obraNombre || 'sin-obra', 
+      instalacionNombre: instalacionNombre || 'sin-instalacion'
+    });
+    
+    const { CloudPhotoService } = await import('../services/CloudPhotoService');
+    const newPhotos = {};
+    
+    for (const item of items) {
+      const itemKey = item.unidad || item.id || item.rowIndex;
+      const photoItemId = item.unidad || item.id || item.rowIndex; // Usar misma lógica que PhotoButton
+      
+      try {
+        console.log(`📂 [LOAD PHOTOS] Cargando fotos para item: "${itemKey}" con photoItemId: "${photoItemId}"`);
+        console.log(`📂 [LOAD PHOTOS] Item completo:`, {
+          id: item.id,
+          unidad: item.unidad,
+          rowIndex: item.rowIndex,
+          descripcion: item.descripcion
+        });
+        
+        const fotos = await CloudPhotoService.listPhotos({
+          jefeGrupo: jefeNombre || 'sin-jefe',
+          obra: obraNombre || 'sin-obra',
+          instalacion: instalacionNombre || 'sin-instalacion',
+          itemId: photoItemId,
+          fecha: new Date().toISOString().split('T')[0]
+        });
+        
+        console.log(`📂 [LOAD PHOTOS] Respuesta CloudPhotoService para "${itemKey}":`, fotos);
+        
+        if (fotos && fotos.length > 0) {
+          console.log(`📂 [LOAD PHOTOS] ✅ ${fotos.length} fotos encontradas para "${itemKey}":`, fotos.map(f => f.fileName));
+          newPhotos[itemKey] = fotos.map(foto => ({
+            id: foto.fileName || `photo_${Date.now()}`,
+            url: foto.url,
+            path: foto.url,
+            uploadedAt: foto.uploadedAt || new Date().toISOString(),
+            fileName: foto.fileName
+          }));
+        } else {
+          console.log(`📂 [LOAD PHOTOS] Sin fotos para "${itemKey}" (respuesta: ${JSON.stringify(fotos)})`);
+        }
+      } catch (error) {
+        console.error(`📂 [LOAD PHOTOS] Error cargando fotos para "${itemKey}":`, error);
+      }
+    }
+    
+    console.log('📂 [LOAD PHOTOS] Resumen final:');
+    console.log('📂 [LOAD PHOTOS] - Total items procesados:', items.length);
+    console.log('📂 [LOAD PHOTOS] - Items con fotos:', Object.keys(newPhotos).length);
+    console.log('📂 [LOAD PHOTOS] - Items con fotos:', Object.keys(newPhotos));
+    
+    setItemPhotos(prevPhotos => {
+      console.log('📂 [LOAD PHOTOS] Fotos anteriores:', Object.keys(prevPhotos).length);
+      console.log('📂 [LOAD PHOTOS] Fotos nuevas de Firebase:', Object.keys(newPhotos).length);
+      
+      // Combinar inteligentemente: preservar fotos existentes y agregar las de Firebase
+      const combined = { ...prevPhotos };
+      
+      for (const [itemKey, firebasePhotos] of Object.entries(newPhotos)) {
+        if (!Array.isArray(firebasePhotos)) continue; // Skip if not array
+        
+        if (!combined[itemKey] || !Array.isArray(combined[itemKey])) {
+          // Si no hay fotos locales para este item, usar las de Firebase
+          combined[itemKey] = firebasePhotos;
+        } else {
+          // Si ya hay fotos locales, combinar sin duplicados por URL
+          const existingUrls = new Set(combined[itemKey].map(p => p.url));
+          const newFirebasePhotos = firebasePhotos.filter(p => !existingUrls.has(p.url));
+          combined[itemKey] = [...combined[itemKey], ...newFirebasePhotos];
+        }
+      }
+      
+      console.log('📂 [LOAD PHOTOS] Fotos combinadas:', Object.keys(combined).length);
+      console.log('📂 [LOAD PHOTOS] Detalle por item:');
+      Object.entries(combined).forEach(([key, photos]) => {
+        if (Array.isArray(photos)) {
+          console.log(`  - ${key}: ${photos.length} fotos`);
+        }
+      });
+      
+      return combined;
+    });
+  }, [items, jefeNombre, obraNombre, instalacionNombre]);
+
+  // ✅ CARGAR FOTOS EXISTENTES cuando se cargan los items
+  React.useEffect(() => {
+    if (items && items.length > 0) {
+      loadExistingPhotos();
+    }
+  }, [items, loadExistingPhotos]);
+
   
 
   // Verificar datos cacheados cuando la pantalla se enfoca (regresa a ella)
@@ -332,15 +431,21 @@ function GrupoChecklistScreen({ route, navigation }) {
 
   // Subida de foto a Firebase y actualización local
   // Ahora handlePhotoTaken recibe la URL pública directamente desde PhotoButton
-  const handlePhotoTaken = async (itemId, publicUrl) => {
-    console.log('[PHOTO] handlePhotoTaken itemId:', itemId);
+  const handlePhotoTaken = async (itemKey, publicUrl) => {
+    console.log('🚀🚀🚀 [PHOTO] ===== HANDLE PHOTO TAKEN INICIADO =====');
+    console.log('[PHOTO] handlePhotoTaken itemKey:', itemKey);
+    console.log('[PHOTO] handlePhotoTaken itemKey type:', typeof itemKey);
     console.log('[PHOTO] handlePhotoTaken publicUrl:', publicUrl);
+    
     if (!publicUrl || typeof publicUrl !== 'string' || !publicUrl.startsWith('http')) {
+      console.log('❌ [PHOTO] URL inválida recibida');
       Alert.alert('Error', 'No se recibió una URL válida de la foto.');
       return;
     }
 
-    // Actualizar estado local
+    console.log('✅ [PHOTO] URL válida recibida, procesando...');
+
+    // Actualizar estado local usando la misma clave que PhotoButton
     const photoMetadata = {
       id: `photo_${Date.now()}`,
       url: publicUrl,
@@ -348,29 +453,72 @@ function GrupoChecklistScreen({ route, navigation }) {
       uploadedAt: new Date().toISOString(),
       fileName: ''
     };
+    
+    console.log('[PHOTO] Actualizando estado local con itemKey:', itemKey);
     setItemPhotos(prevPhotos => ({
       ...prevPhotos,
-      [itemId]: [...(prevPhotos[itemId] || []), photoMetadata]
+      [itemKey]: [...(prevPhotos[itemKey] || []), photoMetadata]
     }));
 
-    // Actualizar URL en Google Sheets (columna S/19)
+    console.log('[PHOTO] Estado local actualizado, buscando item correspondiente...');
+
+    // Buscar el item correspondiente para obtener el rowIndex real para Google Sheets
+    const allItems = items; // ✅ Usar el estado local 'items' en lugar de 'grupo.items'
+    console.log('[PHOTO] Total items en estado local:', allItems.length);
+    console.log('[PHOTO] Buscando item con itemKey:', itemKey);
+    
+    const currentItem = allItems.find(item => {
+      const photoItemKey = item.unidad || item.id || item.rowIndex;
+      console.log('[PHOTO] Comparando item:', photoItemKey, 'con itemKey:', itemKey);
+      return photoItemKey === itemKey;
+    });
+
+    if (!currentItem) {
+      console.error('[PHOTO] ❌ No se encontró el item correspondiente');
+      console.log('[PHOTO] Items disponibles:', allItems.map(item => ({
+        unidad: item.unidad,
+        id: item.id,
+        rowIndex: item.rowIndex,
+        key: item.unidad || item.id || item.rowIndex
+      })));
+      Alert.alert('Error', 'No se pudo identificar el item para actualizar Google Sheets.');
+      return;
+    }
+
+    console.log('[PHOTO] ✅ Item encontrado:', {
+      unidad: currentItem.unidad,
+      id: currentItem.id,
+      rowIndex: currentItem.rowIndex
+    });
+
+    // Usar el rowIndex del item encontrado para Google Sheets
+    const itemRowIndex = currentItem.id || currentItem.rowIndex;
+    console.log('[PHOTO] itemRowIndex final para Google Sheets:', itemRowIndex);
+
+    // Actualizar URL en Google Sheets (columna S/19) usando endpoint guardarChecks
     try {
-      console.log('[PHOTO] Preparando datos para actualización en Google Sheets...');
-      const result = await ApiService.updatePhotoUrl(
+      console.log('[PHOTO] 🚀 Enviando URL a Google Sheets via guardarChecks...');
+      console.log('[PHOTO] Parámetros:', {
+        spreadsheetId: params.obraNombre || params.spreadsheetId,
+        instalacion: instalacionNombre,
+        itemRowIndex: itemRowIndex,
+        photoUrl: publicUrl
+      });
+      
+      await ApiService.updatePhotoUrl(
         params.obraNombre || params.spreadsheetId,
         instalacionNombre,
-        itemId,
+        itemRowIndex,
         publicUrl
       );
-      console.log('[PHOTO] ✅ Datos preparados correctamente:', result);
-      Alert.alert(
-        'Foto subida', 
-        'La foto se subió correctamente. Los datos están listos para Google Sheets (requiere implementación backend).',
-        [{ text: 'OK' }]
-      );
+      console.log('[PHOTO] ✅✅✅ URL enviada correctamente a Google Sheets');
+      console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO EXITOSAMENTE =====');
+      Alert.alert('Foto subida', 'La foto se subió correctamente y se actualizó en Google Sheets.');
     } catch (error) {
-      console.error('[PHOTO] ❌ Error preparando datos:', error);
-      Alert.alert('Foto subida', 'La foto se subió correctamente.');
+      console.error('[PHOTO] ❌❌❌ Error enviando URL a Google Sheets:', error);
+      console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO CON ERROR =====');
+      // Aunque falle la actualización en Sheets, la foto ya está subida y guardada localmente
+      Alert.alert('Foto subida', 'La foto se subió correctamente, pero no se pudo actualizar en Google Sheets.');
     }
   };
 
@@ -605,12 +753,17 @@ function GrupoChecklistScreen({ route, navigation }) {
               {/* Botones de Foto y Observaciones lado a lado */}
               <View style={styles.buttonRow}>
                 <PhotoButton
-                  itemId={item.id}
+                  itemId={item.id || item.rowIndex || 'unknown'}
                   checklistName={item.unidad}
-                  photos={itemPhotos[item.id] || []}
-                  onPhotoTaken={(url) => handlePhotoTaken(item.id, url)}
-                  onViewPhotos={() => handleViewPhotos(item.id)}
-                  onDeletePhoto={(photo) => handleDeletePhoto(item.id, photo)}
+                  photos={itemPhotos[item.unidad || item.id || item.rowIndex] || []}
+                  onPhotoTaken={(url) => {
+                    console.log('[PHOTO] Item data for photo:', JSON.stringify(item, null, 2));
+                    const itemKey = item.unidad || item.id || item.rowIndex || 'unknown';
+                    console.log('[PHOTO] Using itemKey:', itemKey);
+                    handlePhotoTaken(itemKey, url);
+                  }}
+                  onViewPhotos={() => handleViewPhotos(item.unidad || item.id || item.rowIndex)}
+                  onDeletePhoto={(photo) => handleDeletePhoto(item.unidad || item.id || item.rowIndex, photo)}
                   maxPhotos={5}
                   jefeGrupo={jefeNombre || 'sin-jefe'}
                   obra={obraNombre || 'sin-obra'}
@@ -625,22 +778,9 @@ function GrupoChecklistScreen({ route, navigation }) {
                   <Text style={styles.observationsButtonInlineText}>+ Observación</Text>
                 </TouchableOpacity>
               </View>
-              {/* Galería de fotos */}
-              <ScrollView horizontal style={{ marginTop: 8, marginBottom: 8 }} showsHorizontalScrollIndicator={false}>
-                {(itemPhotos[item.id] && itemPhotos[item.id].length > 0) ? (
-                  itemPhotos[item.id].map((photo, idx) => (
-                    <View key={photo.id || idx} style={{ marginRight: 8 }}>
-                      <Image
-                        source={{ uri: photo.url }}
-                        style={{ width: 80, height: 80, borderRadius: 8, backgroundColor: '#eee' }}
-                        resizeMode="cover"
-                      />
-                    </View>
-                  ))
-                ) : (
-                  <Text style={{ color: '#888', fontSize: 13, marginLeft: 4 }}>Sin fotos aún.</Text>
-                )}
-              </ScrollView>
+              
+              {/* Galería de fotos eliminada - ya se maneja en PhotoButton con galería Firebase */}
+              
             </View>
           ))
         )}

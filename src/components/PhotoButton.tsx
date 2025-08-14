@@ -68,6 +68,15 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
               });
               if (!result.canceled && result.assets && result.assets.length > 0) {
                 const uri = result.assets[0].uri;
+                console.log('📸 [PhotoButton] Foto tomada, URI:', uri);
+                console.log('📸 [PhotoButton] Subiendo foto con parámetros:', {
+                  itemId: checklistName || itemId,
+                  jefeGrupo,
+                  obra,
+                  instalacion,
+                  fecha
+                });
+                
                 const photoMetadata = await CloudPhotoService.uploadPhoto(uri, checklistName || itemId, {
                   jefeGrupo,
                   obra,
@@ -75,10 +84,15 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
                   fecha
                 });
 
+                console.log('📸 [PhotoButton] PhotoMetadata recibido:', photoMetadata);
+                
                 if (photoMetadata.url && photoMetadata.url.startsWith('http')) {
+                  console.log('📸 [PhotoButton] ✅ URL válida, llamando onPhotoTaken:', photoMetadata.url);
                   onPhotoTaken(photoMetadata.url);
+                  console.log('📸 [PhotoButton] onPhotoTaken ejecutado');
                   // Ya no se abre el modal automáticamente, solo se actualiza el estado
                 } else {
+                  console.log('📸 [PhotoButton] ❌ URL inválida:', photoMetadata.url);
                   Alert.alert('Error', 'No se pudo subir la foto. Inténtalo de nuevo.');
                 }
               }
@@ -103,17 +117,32 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
               });
               if (!result.canceled && result.assets && result.assets.length > 0) {
                 const photoUri = result.assets[0].uri;
+                console.log('📱 [PhotoButton] Foto seleccionada de galería, URI:', photoUri);
+                console.log('📱 [PhotoButton] Subiendo foto con parámetros:', {
+                  itemId: checklistName || itemId,
+                  jefeGrupo,
+                  obra,
+                  instalacion,
+                  fecha
+                });
+                
                 const photoMetadata = await CloudPhotoService.uploadPhoto(photoUri, checklistName || itemId, {
                   jefeGrupo,
                   obra,
                   instalacion,
                   fecha
                 });
+                
+                console.log('📱 [PhotoButton] PhotoMetadata recibido:', photoMetadata);
+                
                 if (photoMetadata.url && photoMetadata.url.startsWith('http')) {
+                  console.log('📱 [PhotoButton] ✅ URL válida, llamando onPhotoTaken:', photoMetadata.url);
                   onPhotoTaken(photoMetadata.url);
+                  console.log('📱 [PhotoButton] onPhotoTaken ejecutado');
                   Alert.alert('Foto subida', 'La foto se subió correctamente desde la galería.');
                   // Ya no se abre el modal automáticamente, solo se actualiza el estado
                 } else {
+                  console.log('📱 [PhotoButton] ❌ URL inválida:', photoMetadata.url);
                   Alert.alert('Error', 'No se pudo subir la foto seleccionada.');
                 }
               }
@@ -126,20 +155,41 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
         {
           text: 'Galería Firebase',
           onPress: async () => {
-            const fotos = await CloudPhotoService.listPhotos({
+            console.log('📂 [PhotoButton] Abriendo galería Firebase...');
+            console.log('📂 [PhotoButton] Parámetros para listPhotos:', {
               jefeGrupo,
               obra,
               instalacion,
               itemId: checklistName || itemId,
               fecha
             });
-            if (fotos.length === 0) {
-              Alert.alert('Sin fotos', 'No hay fotos en Firebase para este elemento');
-              return;
+            
+            try {
+              const fotos = await CloudPhotoService.listPhotos({
+                jefeGrupo,
+                obra,
+                instalacion,
+                itemId: checklistName || itemId,
+                fecha
+              });
+              
+              console.log('📂 [PhotoButton] Fotos obtenidas de Firebase:', fotos.length);
+              fotos.forEach((foto, index) => {
+                console.log(`📂 [PhotoButton] Foto ${index + 1}: ${foto.fileName} - ${foto.url}`);
+              });
+              
+              if (fotos.length === 0) {
+                Alert.alert('Sin fotos', 'No hay fotos en Firebase para este elemento');
+                return;
+              }
+              
+              setModalPhotos(fotos);
+              setModalTitle(`Galería Firebase (${fotos.length} fotos)`);
+              setModalVisible(true);
+            } catch (error) {
+              console.error('📂 [PhotoButton] Error cargando galería Firebase:', error);
+              Alert.alert('Error', 'No se pudo cargar la galería de Firebase');
             }
-            setModalPhotos(fotos);
-            setModalTitle('Galería Firebase');
-            setModalVisible(true);
           }
         },
         {
@@ -166,7 +216,7 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
         onPress={handleAddPhoto}
       >
         <Text style={styles.buttonText}>
-          📷 Foto / Galería
+          📷 Foto / Galería {photos.length > 0 ? `(${photos.length})` : ''}
         </Text>
       </TouchableOpacity>
       {/* Modal galería visual */}

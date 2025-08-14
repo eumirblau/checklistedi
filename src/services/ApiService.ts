@@ -742,7 +742,7 @@ class ApiService {
   }
 
   // Nueva función para actualizar la URL de foto en la columna S (19)
-  // NOTA: Requiere implementar endpoint /updatePhotoUrl en Firebase Functions
+  // Función para actualizar URL de foto usando endpoint guardarChecks existente
   async updatePhotoUrl(
     obraIdOrName: string,
     instalacionNombre: string,
@@ -766,42 +766,73 @@ class ApiService {
     const spreadsheetId = await this.mapToRealSpreadsheetId(obraIdOrName);
     console.log(`[ApiService.updatePhotoUrl] Mapped obraIdOrName '${obraIdOrName}' to spreadsheetId: ${spreadsheetId}`);
 
-    // Extraer rowIndex del itemId para encontrar la fila correcta
-    const parts = itemId.split('-');
-    const rowIndex = parts.length > 1 ? parseInt(parts[parts.length - 2]) : null;
+    // Extraer rowIndex del itemId - manejar diferentes formatos
+    let rowIndex = null;
     
-    console.log(`[ApiService.updatePhotoUrl] Extracted rowIndex: ${rowIndex} from itemId: ${itemId}`);
-
-    // Datos completos para implementar en el backend
-    const updateData = {
-      spreadsheetId,
-      sheetName: actualSheetName,
-      itemId,
-      rowIndex,
-      photoUrl,
-      timestamp: new Date().toISOString()
-    };
-
-    console.log(`📸 [PHOTO URL UPDATE] Datos completos para backend:`, JSON.stringify(updateData, null, 2));
-    console.log(`📸 [INSTRUCTIONS] Para implementar en Firebase Functions:`);
-    console.log(`📸 [INSTRUCTIONS] 1. Crear endpoint /updatePhotoUrl que reciba estos datos`);
-    console.log(`📸 [INSTRUCTIONS] 2. Actualizar Google Sheets en spreadsheetId="${spreadsheetId}", hoja="${actualSheetName}", fila=${rowIndex}, columna S(19)`);
-    console.log(`📸 [INSTRUCTIONS] 3. Escribir URL: ${photoUrl}`);
-
-    // Por ahora simular éxito hasta que se implemente el endpoint
-    console.log(`✅ [PHOTO URL UPDATE] Información registrada correctamente (pendiente implementación backend)`);
+    // Caso 1: itemId es solo un número (ej: "11")
+    if (/^\d+$/.test(itemId)) {
+      rowIndex = parseInt(itemId);
+      console.log(`[ApiService.updatePhotoUrl] ItemId is numeric, using as rowIndex: ${rowIndex}`);
+    } 
+    // Caso 2: itemId es completo (ej: "15UNDktnDzB_8lHkxx4QjKYRfABX4_M2wjCXx61Wh474-9-Aérea-ó-enterrada")
+    else {
+      const parts = itemId.split('-');
+      rowIndex = parts.length > 1 ? parseInt(parts[parts.length - 2]) : null;
+      console.log(`[ApiService.updatePhotoUrl] Extracting rowIndex from full itemId: ${rowIndex}`);
+    }
     
-    return {
-      success: true,
-      message: 'Photo URL data logged successfully - Backend implementation needed',
-      data: updateData,
-      instructions: {
-        endpoint: '/updatePhotoUrl',
+    if (!rowIndex || isNaN(rowIndex)) {
+      throw new Error(`No se pudo extraer rowIndex válido del itemId: ${itemId}`);
+    }
+
+    console.log(`[ApiService.updatePhotoUrl] Final rowIndex: ${rowIndex} from itemId: ${itemId}`);
+
+    try {
+      // Crear item especial para actualización de foto usando guardarChecks
+      const photoUpdateItem = {
+        id: itemId,
+        rowIndex: rowIndex,
+        photoUrl: photoUrl,
+        // Flag especial para indicar que es actualización de foto únicamente
+        isPhotoUpdate: true
+      };
+
+      console.log(`[ApiService.updatePhotoUrl] Sending photo update via guardarChecks:`, photoUpdateItem);
+
+      const response = await fetch(`${BASE_URL}/guardarChecks`, {
         method: 'POST',
-        body: updateData,
-        action: `Update Google Sheets spreadsheet ${spreadsheetId}, sheet ${actualSheetName}, row ${rowIndex}, column S (19) with URL: ${photoUrl}`
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          spreadsheetId,
+          pestana: actualSheetName,
+          items: [photoUpdateItem],
+          usuario: 'Sistema_Foto',
+          cargo: 'Automatico',
+          // ✅ Parámetros requeridos por el backend para detectar actualización de foto
+          isPhotoUpdate: true,
+          updatePhotoOnly: true,
+          photoUrl: photoUrl,     // ✅ AÑADIDO: PhotoUrl en nivel raíz
+          itemId: rowIndex        // ✅ AÑADIDO: ItemId como rowIndex para el backend
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`[ApiService.updatePhotoUrl] API error: ${response.status} - ${errorBody}`);
+        throw new Error(`Error updating photo URL: ${response.statusText} - ${errorBody}`);
       }
-    };
+
+      const result = await response.json();
+      console.log('✅ [ApiService.updatePhotoUrl] Photo URL updated successfully via guardarChecks:', result);
+      return result;
+
+    } catch (error) {
+      console.error('❌ [ApiService.updatePhotoUrl] Error updating photo URL via guardarChecks:', error);
+      throw error;
+    }
   }
 }
 export default new ApiService();
+

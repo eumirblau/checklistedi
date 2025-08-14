@@ -71,6 +71,13 @@ export class CloudPhotoService {
     const folder = `checklist-photos/${jefeGrupo}/${obra}/${instalacion}/${options.itemId}`;
     
     console.log('📂 [CloudPhotoService] Listando fotos en:', folder);
+    console.log('📂 [CloudPhotoService] Parámetros completos:', {
+      jefeGrupo,
+      obra,
+      instalacion,
+      itemId: options.itemId,
+      fecha: options.fecha
+    });
     
     // Supongamos que tienes una Cloud Function que lista los archivos de una carpeta
     const LIST_FUNCTION_URL = 'https://us-central1-checklistedhinor.cloudfunctions.net/listphotosinfolder';
@@ -97,7 +104,15 @@ export class CloudPhotoService {
       }
       
       const result = await response.json();
+      console.log('✅ [CloudPhotoService] Respuesta completa de listphotosinfolder:', JSON.stringify(result, null, 2));
       console.log('✅ [CloudPhotoService] Fotos listadas:', result.photos?.length || 0);
+      
+      if (result.photos && result.photos.length > 0) {
+        console.log('📂 [CloudPhotoService] Detalles de fotos encontradas:');
+        result.photos.forEach((photo: any, index: number) => {
+          console.log(`  ${index + 1}. ${photo.fileName} - ${photo.url}`);
+        });
+      }
       
       // Espera un array de objetos { url, fileName, uploadedAt }
       return (result.photos || []).map((photo: any) => ({
