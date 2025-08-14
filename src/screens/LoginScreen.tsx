@@ -68,8 +68,7 @@ const LoginScreen = ({ navigation }: Props) => {
             />
           </View>
           <Text style={styles.companyName}>EDHINOR</Text>
-          <Text style={styles.title}>CheckedHID</Text>
-          <Text style={styles.subtitle}>Sistema de Checklist</Text>
+          <Text style={styles.title}>Checklist App</Text>
         </View>
 
         <View style={styles.formContainer}>
@@ -122,8 +121,7 @@ const LoginScreen = ({ navigation }: Props) => {
         </View>
 
         <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>CheckedHID v1.0</Text>
-          <Text style={styles.footerSubtext}>Sistema de gestión de checklist</Text>
+          <Text style={styles.footerText}>Checklist App v1.0</Text>
         </View>
       </ScrollView>
     </View>
@@ -146,7 +144,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 20,
   },
   logoContainer: {
     marginBottom: 20,
@@ -213,7 +211,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-    marginBottom: 40,
+    marginBottom: 20,
   },
   inputContainer: {
     marginBottom: 20,

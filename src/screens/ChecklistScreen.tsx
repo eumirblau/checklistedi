@@ -137,9 +137,12 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
       const unidad = item.unidad?.trim() || '';
       const descripcion = item.descripcion?.trim().toUpperCase() || '';
       // Si la unidad es un encabezado (mayúsculas y sin números) o la descripción es especial
+      // ✅ AMPLIADO: Incluir encabezados específicos como "ACS y SOLAR TÉRMICA"
       if (
         unidad && unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2 && unidad !== ultimoEncabezado
         || ["EXISTENTE NO SE MODIFICA","NO ES MOTIVO DE LA OBRA","NO SE HA INICIADO","OBSERVACIONES/ANOTACIONES","FIRMAS"].includes(descripcion)
+        || unidad.includes('ACS') && unidad.includes('SOLAR')
+        || unidad.includes('acs') && unidad.includes('solar')
       ) {
         grupoActual = { encabezado: unidad || descripcion, items: [] };
         grupos.push(grupoActual);

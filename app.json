@@ -4,7 +4,6 @@
     "slug": "checklist-app",
     "version": "1.0.0",
     "sdkVersion": "53.0.0",
-    "main": "index.js",
     "platforms": [
       "ios",
       "android",
