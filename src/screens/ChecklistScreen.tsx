@@ -136,9 +136,19 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
     for (const item of items) {
       const unidad = item.unidad?.trim() || '';
       const descripcion = item.descripcion?.trim().toUpperCase() || '';
-      // Si la unidad es un encabezado (mayúsculas y sin números) o la descripción es especial
+      
+      // Condiciones mejoradas para detectar encabezados:
+      // 1. Texto principalmente en mayúsculas (permitir palabras como 'y', 'de', 'del')
+      // 2. No contiene descripciones típicas de items
+      // 3. Longitud mínima para ser encabezado
+      const palabrasEnMayusculas = unidad.split(/\s+/).filter(p => p === p.toUpperCase() && p.length > 1);
+      const esMayoritariamenteMayusculas = palabrasEnMayusculas.length >= Math.ceil(unidad.split(/\s+/).length * 0.6);
+      const noEsItem = !unidad.includes('√') && !unidad.includes('X') && !unidad.includes('•');
+      const esEncabezadoTexto = unidad.length > 2 && esMayoritariamenteMayusculas && noEsItem;
+      
+      // Si la unidad es un encabezado o la descripción es especial
       if (
-        unidad && unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2 && unidad !== ultimoEncabezado
+        (unidad && esEncabezadoTexto && unidad !== ultimoEncabezado)
         || ["EXISTENTE NO SE MODIFICA","NO ES MOTIVO DE LA OBRA","NO SE HA INICIADO","OBSERVACIONES/ANOTACIONES","FIRMAS"].includes(descripcion)
       ) {
         grupoActual = { encabezado: unidad || descripcion, items: [] };
