@@ -28,11 +28,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.eumirblau.checklistapp",
-      "enableProguardInReleaseBuilds": false,
-      "compileSdkVersion": 35,
-      "targetSdkVersion": 35,
-      "buildToolsVersion": "35.0.0"
+      "package": "com.eumirblau.checklistapp"
     },
     "extra": {
       "eas": {
