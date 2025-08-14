@@ -10,9 +10,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import ApiService from '../../services/ApiService';
-import { JefeDeGrupo } from '../../types';
 import { useCallback, useEffect, useState } from '../react-hooks';
+import ApiService from '../services/ApiService';
+import { JefeDeGrupo } from '../types';
 
 type JefesScreenNavigationProp = any;
 type JefesScreenRouteProp = any;
@@ -72,6 +72,7 @@ const JefesScreen = ({ navigation, route }: Props) => {
 
   const renderJefe = ({ item }: { item: JefeDeGrupo }) => {
     if (!item || !item.nombre || typeof item.nombre !== 'string') {
+      console.log('⚠️ Invalid item in renderJefe:', item);
       return null;
     }
 
@@ -79,6 +80,7 @@ const JefesScreen = ({ navigation, route }: Props) => {
     const email = item.email ? String(item.email).trim() : '';
     
     if (!nombre) {
+      console.log('⚠️ Empty nombre in renderJefe:', item);
       return null;
     }
 

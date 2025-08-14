@@ -10,9 +10,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import ApiService from '../../services/ApiService';
-import { Instalacion } from '../../types';
 import { useCallback, useEffect, useState } from '../react-hooks';
+import ApiService from '../services/ApiService';
+import { Instalacion } from '../types';
 
 // Componente Text seguro que previene el error "Text strings must be rendered within a <Text> component"
 const Text = ({ children, style, ...props }: any) => {
@@ -58,6 +58,7 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
   const loadInstalaciones = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('🔄 Cargando instalaciones para obra:', { jefeNombre, obraNombre, obraId });
       
       // Validar que tengamos un obraId válido
       if (!obraId) {
@@ -78,6 +79,7 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
       
       // 1. Resolver el realSpreadsheetId primero
       const resolvedSpreadsheetId = await ApiService.mapToRealSpreadsheetId(obraIdentifier);
+      console.log('🔑 realSpreadsheetId resuelto:', resolvedSpreadsheetId);
       if (!resolvedSpreadsheetId) {
         console.error('❌ Error: No se pudo resolver el realSpreadsheetId para la obra:', obraIdentifier);
         Alert.alert(
@@ -90,7 +92,10 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
       
       // 2. Usar el resolvedSpreadsheetId para obtener las pestañas (instalaciones)
       const data = await ApiService.getPestanasDeObra(resolvedSpreadsheetId);
+      console.log('✅ Pestañas/Instalaciones recibidas:', data);
+      console.log('📊 Cantidad de instalaciones:', data?.length || 0);
       setInstalaciones(data || []);
+      console.log('🎯 setState completado para instalaciones');
     } catch (error) {
       console.error('❌ Error cargando instalaciones:', error);
       Alert.alert(
@@ -98,7 +103,9 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
         'No se pudieron cargar las instalaciones. Verifique su conexión a internet.',
         [{ text: 'Reintentar', onPress: loadInstalaciones }]      );
       setInstalaciones([]);
+      console.log('🚨 Error manejado, setState limpio');
     } finally {
+      console.log('🏁 InstalacionesScreen: Finalizando carga, setLoading(false)');
       setLoading(false);
     }
   }, [obraId, obraNombre, jefeNombre]);
@@ -117,7 +124,13 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
       Alert.alert('Error', 'No se pudo determinar la hoja de cálculo para esta obra.');
       return;
     }
-    navigation.navigate('Checklist', {
+    console.log('🔍 DEBUG InstalacionesScreen - Navegando al checklist:', {
+      instalacionId: instalacion.id,
+      instalacionNombre: instalacion.nombre,
+      obraIdInterno: obraId,
+      spreadsheetIdReal: realSpreadsheetId,
+      obraNombre: obraNombre,
+    });    navigation.navigate('Checklist', {
       instalacionId: instalacion.id,
       instalacionNombre: instalacion.nombre,
       spreadsheetId: realSpreadsheetId,
@@ -128,7 +141,9 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
     });
   };
   const renderInstalacion = ({ item }: { item: Instalacion }) => {
+    console.log('🔄 Renderizando instalación:', item);
     if (!item) {
+      console.log('⚠️ Item es null/undefined');
       return null;
     }
 
@@ -203,6 +218,7 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
   };
 
   if (loading) {
+    console.log('⏳ InstalacionesScreen: Cargando...');
     return (
       <View style={[styles.container, styles.gradientBackground]}>
         <StatusBar barStyle="light-content" backgroundColor="#4a6cf7" />
@@ -214,6 +230,7 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
     );
   }
 
+  console.log('🎯 InstalacionesScreen: Renderizando con instalaciones:', instalaciones?.length || 0);
   return (
     <View style={[styles.container, styles.gradientBackground]}>
       <StatusBar barStyle="light-content" backgroundColor="#4a6cf7" />

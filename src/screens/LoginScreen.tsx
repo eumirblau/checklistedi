@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import {
-  Alert,
-  Image,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Image,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { RolUsuario, Usuario } from '../../types';
+import { RolUsuario, Usuario } from '../types';
 
 type LoginScreenNavigationProp = any;
 

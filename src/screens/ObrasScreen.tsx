@@ -1,4 +1,3 @@
-import ApiService from ' ../../services/ApiService';
 import React from 'react';
 import {
     ActivityIndicator,
@@ -11,8 +10,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { Obra } from '../../types';
 import { useCallback, useEffect, useState } from '../react-hooks';
+import ApiService from '../services/ApiService';
+import { Obra } from '../types';
 
 // Componente Text seguro que previene el error "Text strings must be rendered within a <Text> component"
 const Text = ({ children, style, ...props }: any) => {
@@ -55,7 +55,9 @@ const ObrasScreen = ({ navigation, route }: Props) => {
   const loadObras = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('🔄 ObrasScreen: Iniciando carga de obras para jefe:', jefeId);
       const data = await ApiService.getObrasPorJefe(jefeId);
+      console.log('✅ ObrasScreen: Obras recibidas:', data);
       setObras(data);
     } catch (error) {
       console.error('❌ ObrasScreen: Error cargando obras:', error);      Alert.alert(
@@ -80,6 +82,12 @@ const ObrasScreen = ({ navigation, route }: Props) => {
   };
 
   const handleObraPress = (obra: Obra) => {
+    console.log('🔍 DEBUG ObrasScreen - Obra seleccionada:', {
+      id: obra.id,
+      nombre: obra.nombre,
+      spreadsheetId: obra.spreadsheetId,
+      obraIdToPass: obra.id, // Use technical ID for API calls
+    });
     navigation.navigate('Instalaciones', {
       obraId: obra.id, // Pass technical ID (e.g., ObraID001M) for API calls
       obraNombre: obra.nombre,

@@ -1,52 +1,110 @@
+// Tipos de navegación
+export type RootStackParamList = {
+  Login: undefined;
+  Jefes: { usuario: Usuario };
+  Obras: { 
+    jefeId: string;
+    jefeNombre: string;
+    usuario: Usuario;
+  };
+  Instalaciones: { 
+    obraId: string;
+    obraNombre: string;
+    jefeNombre: string;
+    usuario: Usuario;
+  };
+  Checklist: { 
+    instalacionId: string;
+    instalacionNombre: string;
+    spreadsheetId: string;
+    usuario: Usuario;
+    obraNombre: string;
+  };
+};
+
+// Enumeraciones
+export enum RolUsuario {
+  ADMIN = 'ADMIN',
+  SUPERVISOR = 'SUPERVISOR',
+  TECNICO = 'TECNICO'
+}
+
+export enum EstadoInstalacion {
+  PENDIENTE = 'PENDIENTE',
+  EN_PROGRESO = 'EN_PROGRESO',
+  COMPLETADA = 'COMPLETADA'
+}
+
+export enum EstadoObra {
+  ACTIVO = 'ACTIVO',
+  PAUSADO = 'PAUSADO',
+  COMPLETADO = 'COMPLETADO',
+  SUSPENDIDO = 'SUSPENDIDO'
+}
+
+export enum TipoInstalacion {
+  ELECTRICA = 'ELECTRICA',
+  HIDRAULICA = 'HIDRAULICA',
+  CLIMATIZACION = 'CLIMATIZACION',
+  OTROS = 'OTROS'
+}
+
+export enum EstadoItem {
+  PENDIENTE = 'PENDIENTE',
+  COMPLETADO = 'COMPLETADO',
+  EN_PROGRESO = 'EN_PROGRESO'
+}
+
+// Interfaces principales
+export interface Usuario {
+  id: string;
+  nombre: string;
+  cargo: string;
+  email: string;
+  rol: RolUsuario;
+}
+
 export interface JefeDeGrupo {
   id: string;
   nombre: string;
-  grupo: string;
   email?: string;
 }
 
 export interface Obra {
   id: string;
   nombre: string;
-  jefe_id: string;
+  ubicacion?: string;
+  estado?: string;
   spreadsheetId?: string;
-}
-
-export enum TipoInstalacion {
-  OTROS = 'OTROS'
 }
 
 export interface Instalacion {
   id: string;
   nombre: string;
-  obra_id: string;
-  tipo_instalacion_id: string;
   nombreAmigable?: string;
-  tipo?: TipoInstalacion;
-  estado?: EstadoItem;
-}
-
-export enum EstadoItem {
-  PENDIENTE = 'PENDIENTE',
-  COMPLETADO = 'COMPLETADO'
+  tipo: TipoInstalacion;
+  estado: EstadoItem;
+  fechaInicio?: string;
+  fechaFin?: string;
+  notas?: string;
 }
 
 export interface ChecklistItem {
   id: string;
-  unidad: string;
-  concepto: string;
-  descripcion?: string;
-  estado?: EstadoItem;
+  descripcion: string;
+  completado: boolean;
   observaciones?: string;
-  fecha_revision?: string;
-  revisado_por?: string;
-  completado?: boolean;
-  rowIndex?: number;
+  unidad?: string;
   s_contrato?: string;
   fechapp?: string;
-  cantidad?: any;
+  cantidad?: number;
   fechaCompletado?: string;
-  meta?: any;
-  actual?: any;
-  subItems?: any[];
+  rowIndex?: number;
+  meta?: string;
+  actual?: string;
+  subItems?: ChecklistItem[];
 }
+
+// Alias para compatibilidad
+export interface Jefe extends JefeDeGrupo {}
+export interface ItemChecklist extends ChecklistItem {}
