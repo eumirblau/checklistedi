@@ -3,6 +3,7 @@ import React from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '../../components/ThemedText';
 import PhotoButton from '../components/PhotoButton';
+import VoiceButton from '../components/VoiceButton';
 import ApiService from '../services/ApiService';
 
 function GrupoChecklistScreen({ route, navigation }) {
@@ -644,14 +645,31 @@ function GrupoChecklistScreen({ route, navigation }) {
               </View>
             ) : null}
             <Text style={{ fontWeight: 'bold', color: '#4a6cf7', marginBottom: 8 }}>Nueva observación:</Text>
-            <TextInput
-              style={{ borderWidth: 2, borderColor: '#4a6cf7', borderRadius: 8, padding: 12, marginBottom: 10, minHeight: 80, backgroundColor: '#fff' }}
-              placeholder="Escriba su observación aquí..."
-              value={newObservation}
-              onChangeText={setNewObservation}
-              multiline
-              numberOfLines={3}
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
+              <TextInput
+                style={{ 
+                  flex: 1,
+                  borderWidth: 2, 
+                  borderColor: '#4a6cf7', 
+                  borderRadius: 8, 
+                  padding: 12, 
+                  minHeight: 80, 
+                  backgroundColor: '#fff',
+                  marginRight: 10,
+                  textAlignVertical: 'top'
+                }}
+                placeholder="Escriba su observación aquí..."
+                value={newObservation}
+                onChangeText={setNewObservation}
+                multiline
+                numberOfLines={3}
+              />
+              <VoiceButton
+                onTranscription={(text) => {
+                  setNewObservation(prev => prev ? `${prev} ${text}` : text);
+                }}
+              />
+            </View>
             <TouchableOpacity
               style={{ backgroundColor: '#4a6cf7', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 10 }}
               onPress={addObservation}
