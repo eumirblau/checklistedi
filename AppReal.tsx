@@ -28,32 +28,47 @@ export default function AppReal() {
         <Stack.Screen 
           name="Login" 
           component={LoginScreen} 
-          options={{ title: 'Inicio de Sesión' }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen 
           name="Jefes" 
           component={JefesScreen} 
-          options={{ title: 'Seleccionar Jefe' }}
+          options={{ 
+            headerShown: false,
+            gestureEnabled: false
+          }}
         />
         <Stack.Screen 
           name="Obras" 
           component={ObrasScreen} 
-          options={{ title: 'Seleccionar Obra' }}
+          options={{ 
+            headerShown: false,
+            gestureEnabled: false
+          }}
         />
         <Stack.Screen 
           name="Instalaciones" 
           component={InstalacionesScreen} 
-          options={{ title: 'Seleccionar Instalación' }}
+          options={{ 
+            headerShown: false,
+            gestureEnabled: false
+          }}
         />
         <Stack.Screen 
           name="ChecklistScreen" 
           component={ChecklistScreen} 
-          options={{ title: 'Checklist' }}
+          options={{ 
+            headerShown: false,
+            gestureEnabled: false
+          }}
         />
         <Stack.Screen 
           name="GrupoChecklistScreen" 
           component={GrupoChecklistScreen} 
-          options={{ title: 'Grupo Checklist' }}
+          options={{ 
+            headerShown: false,
+            gestureEnabled: false
+          }}
         />
       </Stack.Navigator>
     </NavigationContainer>

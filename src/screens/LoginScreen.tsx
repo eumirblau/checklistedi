@@ -12,69 +12,55 @@ import {
     View
 } from 'react-native';
 import AuthService from '../services/AuthService';
-import { RolUsuario, Usuario, UsuarioAuth } from '../types';
-
-type LoginScreenNavigationProp = any;
-
-interface Props {
-  navigation: LoginScreenNavigationProp;
-}
+import { RolUsuario, Usuario } from '../types';
 
 const authService = new AuthService();
+
+type Props = {
+  navigation: any;
+};
 
 const LoginScreen = ({ navigation }: Props) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
-  // Escuchar cambios en el estado de autenticación
+  // Verificar usuario al cargar
   useEffect(() => {
-    const unsubscribe = authService.onAuthStateChanged((user) => {
-      if (user && !initializing) {
-        // Usuario autenticado, usar datos temporales si existen
-        const tempData = (global as any).tempUserData;
-        const usuarioData: Usuario = tempData || {
-          id: user.uid,
-          nombre: user.displayName || 'Usuario',
-          cargo: 'Técnico', // Valor por defecto si no hay datos temporales
-          email: user.email || '',
-          rol: RolUsuario.TECNICO,
-        };
-        
-        // Limpiar datos temporales
-        delete (global as any).tempUserData;
-        
-        navigation.replace('Jefes', { usuario: usuarioData });
+    const checkAuth = async () => {
+      try {
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          const usuarioData: Usuario = {
+            id: currentUser.uid,
+            nombre: currentUser.displayName || 'Usuario Firebase',
+            email: currentUser.email || '',
+            cargo: 'SUPERVISOR',
+            rol: RolUsuario.SUPERVISOR
+          };
+          // Comentado temporalmente para testing
+          // navigation.navigate('Jefes', { usuario: usuarioData });
+        }
+      } catch (error) {
+        console.log('Usuario no autenticado');
+      } finally {
+        setInitializing(false);
       }
-      if (initializing) setInitializing(false);
-    });
+    };
 
-    return unsubscribe;
-  }, [navigation, initializing]);
+    checkAuth();
+  }, [navigation]);
 
   const handleAuth = async () => {
-    if (!email.trim()) {
-      Alert.alert('Error', 'Por favor ingrese su email');
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Error', 'Por favor completa email y contraseña');
       return;
     }
 
-    if (!password.trim()) {
-      Alert.alert('Error', 'Por favor ingrese su contraseña');
-      return;
-    }
-
-    // Requerir cargo siempre para mantener la lógica de obtención de datos
     if (!cargo.trim()) {
-      Alert.alert('Error', 'Por favor ingrese su cargo');
-      return;
-    }
-
-    if (isRegisterMode && !nombre.trim()) {
-      Alert.alert('Error', 'Por favor ingrese su nombre');
+      Alert.alert('Error', 'Por favor ingresa tu cargo');
       return;
     }
 
@@ -91,217 +77,111 @@ const LoginScreen = ({ navigation }: Props) => {
     }
 
     setLoading(true);
-
+    
     try {
-      let usuarioAuth: UsuarioAuth;
-
-      if (isRegisterMode) {
-        // Registrar nuevo usuario
-        usuarioAuth = await authService.registrarUsuario(email, password);
-        
-        // Actualizar perfil con nombre
-        await authService.actualizarPerfil({ displayName: nombre });
-        
-        Alert.alert(
-          'Registro exitoso',
-          'Su cuenta ha sido creada. Iniciando sesión...',
-          [{ text: 'OK' }]
-        );
-      } else {
-        // Iniciar sesión
-        usuarioAuth = await authService.iniciarSesion(email, password);
-      }
-
-      // Crear usuario compatible con la app usando el cargo del formulario
-      const usuarioData: Usuario = {
-        id: usuarioAuth.uid,
-        nombre: usuarioAuth.displayName || nombre || 'Usuario',
-        cargo: cargo.trim(), // Usar el cargo ingresado en el formulario
-        email: usuarioAuth.email || '',
-        rol: RolUsuario.TECNICO,
-      };
-
-      // Guardar temporalmente el usuario para usarlo en onAuthStateChanged
-      (global as any).tempUserData = usuarioData;
-
-      // La navegación será manejada por onAuthStateChanged
+      const user = await authService.iniciarSesion(email.trim(), password.trim());
       
+      if (user) {
+        // Determinar rol basado en el cargo ingresado
+        let rol = RolUsuario.TECNICO; // Por defecto
+        const cargoUpper = cargo.trim().toUpperCase();
+        if (cargoUpper.includes('ADMIN') || cargoUpper.includes('ADMINISTRADOR')) {
+          rol = RolUsuario.ADMIN;
+        } else if (cargoUpper.includes('SUPERVISOR') || cargoUpper.includes('JEFE')) {
+          rol = RolUsuario.SUPERVISOR;
+        }
+
+        const usuarioCompleto: Usuario = {
+          id: user.uid,
+          nombre: email.trim(),
+          email: user.email || email.trim(),
+          cargo: cargo.trim(),
+          rol: rol
+        };
+
+        console.log('🔥 FIREBASE AUTH - Usuario:', usuarioCompleto);
+        navigation.navigate('Jefes', { usuario: usuarioCompleto });
+      }
     } catch (error: any) {
-      console.error('Error de autenticación:', error);
-      Alert.alert(
-        'Error de autenticación', 
-        error.message || 'Error al procesar la solicitud'
-      );
+      console.error('Error con Firebase:', error);
+      Alert.alert('Error', error.message || 'No se pudo conectar con Firebase');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = async () => {
-    if (!email.trim()) {
-      Alert.alert('Email requerido', 'Por favor ingrese su email para enviar el enlace de recuperación');
-      return;
-    }
-
-    if (!AuthService.validarEmail(email)) {
-      Alert.alert('Error', 'Por favor ingrese un email válido');
-      return;
-    }
-
-    try {
-      await authService.enviarResetPassword(email);
-      Alert.alert(
-        'Email enviado',
-        'Se ha enviado un enlace de recuperación a su email'
-      );
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Error al enviar el email de recuperación');
-    }
-  };
-
-  // Mostrar loading mientras se inicializa
   if (initializing) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>Iniciando...</Text>
+      <View style={[styles.container, styles.centerContainer]}>
+        <ActivityIndicator size="large" color="#667eea" />
+        <Text style={styles.loadingText}>Verificando autenticación...</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, styles.gradientBackground]}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#4a6cf7" />
-      <ScrollView 
-        contentContainerStyle={[styles.scrollContainer, { flex: 1 }]}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.headerContainer}>
-          <View style={styles.logoContainer}>
-            <Image
-              source={require('../assets/edhinor-logo.jpg')}
-              style={styles.companyLogo}
-              resizeMode="contain"
-            />
-          </View>
-          <Text style={styles.companyName}>EDHINOR</Text>
-          <Text style={styles.title}>Checklist App</Text>
-          <Text style={styles.subtitle}>
-            {isRegisterMode ? 'Crear nueva cuenta' : 'Iniciar sesión'}
-          </Text>
+      
+      <View style={styles.headerBand}>
+        <Text style={styles.headerTitle}>Checklist EDHINOR</Text>
+      </View>
+      
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.logoContainer}>
+          <Image
+            source={require('../assets/edhinor-logo.jpg')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
         </View>
 
         <View style={styles.formContainer}>
           <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.emojiIcon}>�</Text>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Email"
-                placeholderTextColor="#999"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="tu@email.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
           </View>
 
           <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.emojiIcon}>🔒</Text>
-              <TextInput
-                style={styles.input}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Contraseña"
-                placeholderTextColor="#999"
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+            <Text style={styles.label}>Contraseña</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Tu contraseña"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
           </View>
 
           <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.emojiIcon}>�</Text>
-              <TextInput
-                style={styles.input}
-                value={cargo}
-                onChangeText={setCargo}
-                placeholder="Cargo"
-                placeholderTextColor="#999"
-                autoCapitalize="words"
-                autoCorrect={false}
-              />
-            </View>
+            <Text style={styles.label}>Cargo</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Tu cargo"
+              value={cargo}
+              onChangeText={setCargo}
+              autoCapitalize="words"
+            />
           </View>
-
-          {isRegisterMode && (
-            <View style={styles.inputContainer}>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.emojiIcon}>�</Text>
-                <TextInput
-                  style={styles.input}
-                  value={nombre}
-                  onChangeText={setNombre}
-                  placeholder="Nombre completo"
-                  placeholderTextColor="#999"
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                />
-              </View>
-            </View>
-          )}
 
           <TouchableOpacity
             style={[styles.loginButton, loading && styles.loginButtonDisabled]}
             onPress={handleAuth}
             disabled={loading}
           >
-            <View style={styles.loginButtonGradient}>
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.buttonEmojiIcon}>
-                  {isRegisterMode ? '�' : '�🔐'}
-                </Text>
-              )}
-              <Text style={styles.loginButtonText}>
-                {loading 
-                  ? (isRegisterMode ? 'Registrando...' : 'Iniciando...') 
-                  : (isRegisterMode ? 'Registrarse' : 'Iniciar Sesión')
-                }
-              </Text>
-            </View>
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+            )}
           </TouchableOpacity>
-
-          {!isRegisterMode && (
-            <TouchableOpacity
-              style={styles.forgotPasswordButton}
-              onPress={handleForgotPassword}
-            >
-              <Text style={styles.forgotPasswordText}>¿Olvidó su contraseña?</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={styles.toggleModeButton}
-            onPress={() => setIsRegisterMode(!isRegisterMode)}
-          >
-            <Text style={styles.toggleModeText}>
-              {isRegisterMode 
-                ? '¿Ya tiene cuenta? Iniciar sesión' 
-                : '¿No tiene cuenta? Registrarse'
-              }
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>Checklist App v2.0 con Firebase Auth</Text>
         </View>
       </ScrollView>
     </View>
@@ -313,200 +193,102 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#4a6cf7',
   },
-  gradientBackground: {
-    backgroundColor: '#4a6cf7',
-  },
-  scrollContainer: {
-    flexGrow: 1,
+  centerContainer: {
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-  },
-  headerContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+  },
+  headerBand: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 15,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+    textAlign: 'center',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    padding: 20,
+    paddingTop: 40,
   },
   logoContainer: {
-    marginBottom: 20,
-  },
-  companyLogo: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
-  },
-  logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    marginBottom: 25,
   },
-  companyName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
-    marginBottom: 8,
-    letterSpacing: 2,
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 15,
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    color: '#2c3e50',
+    marginBottom: 6,
   },
   subtitle: {
     fontSize: 16,
-    color: '#fff',
+    color: '#7f8c8d',
     textAlign: 'center',
-    opacity: 0.9,
   },
   formContainer: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 24,
+    borderRadius: 10,
+    padding: 20,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-    marginBottom: 20,
+    shadowRadius: 4,
+  },
+  formTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 24,
+    textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 15,
   },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-  },
-  inputIcon: {
-    paddingLeft: 12,
-    paddingRight: 8,
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#34495e',
+    marginBottom: 6,
   },
   input: {
-    flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#bdc3c7',
+    borderRadius: 6,
+    padding: 10,
+    fontSize: 14,
+    backgroundColor: '#ffffff',
   },
   loginButton: {
-    borderRadius: 8,
-    marginTop: 8,
-    overflow: 'hidden',
-  },
-  loginButtonGradient: {
-    backgroundColor: '#fff',
-    paddingVertical: 16,
+    backgroundColor: '#4a6cf7',
+    borderRadius: 6,
+    padding: 12,
     alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    marginTop: 15,
   },
   loginButtonDisabled: {
-    opacity: 0.6,
-  },  loginButtonText: {
-    color: '#4a6cf7',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 8,
+    backgroundColor: '#bdc3c7',
   },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  loadingIcon: {
-    marginRight: 8,
-  },
-  footerContainer: {
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '600',
-    opacity: 0.8,
-  },
-  footerSubtext: {
-    fontSize: 12,
-    color: '#fff',
-    marginTop: 4,
-    opacity: 0.7,
-  },
-  emojiIcon: {
-    fontSize: 20,
-    color: '#4a6cf7',
-    paddingLeft: 12,
-    paddingRight: 8,
-  },
-  buttonEmojiIcon: {
-    fontSize: 20,
-    color: '#4a6cf7',
-    marginRight: 8,
-  },
-  // Nuevos estilos para Firebase Auth
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  loginButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   loadingText: {
-    color: '#fff',
+    marginTop: 16,
     fontSize: 16,
-    marginTop: 10,
-    fontWeight: '600',
-  },
-  forgotPasswordButton: {
-    marginTop: 15,
-    alignItems: 'center',
-  },
-  forgotPasswordText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    opacity: 0.8,
-  },
-  toggleModeButton: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  toggleModeText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-    opacity: 0.9,
+    color: '#7f8c8d',
   },
 });
 

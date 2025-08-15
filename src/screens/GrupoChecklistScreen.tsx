@@ -278,11 +278,9 @@ function GrupoChecklistScreen({ route, navigation }) {
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       
-      // Incluir nombre y cargo del usuario en el timestamp
+      // Incluir solo el nombre real del usuario en el timestamp
       const userName = usuario?.nombre || usuario || 'Usuario';
-      const userCargo = usuario?.cargo || '';
-      const userInfo = userCargo ? `${userName} (${userCargo})` : userName;
-      const timestamp = `${day}/${month}/${year} ${hours}:${minutes} - ${userInfo}`;
+      const timestamp = `${day}/${month}/${year} ${hours}:${minutes} - ${userName}`;
       
       const updatedObservations = selectedItem.observaciones 
         ? `${selectedItem.observaciones}\n[${timestamp}] ${newObservation.trim()}`
