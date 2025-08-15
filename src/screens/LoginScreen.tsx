@@ -12,6 +12,7 @@ import {
     View
 } from 'react-native';
 import AuthService from '../services/AuthService';
+// import AuthServiceMock from '../services/AuthServiceMock';
 import { RolUsuario, Usuario } from '../types';
 
 const authService = new AuthService();

@@ -1,6 +1,17 @@
-// Configuración para React Native Firebase
-// React Native Firebase usa automáticamente google-services.json
-// Solo exportamos configuraciones auxiliares
+// Configuración de Firebase
+// Generado automáticamente desde google-services.json
+// Fecha: 2025-08-15T18:59:36.374Z - API Key renovada
+export const firebaseConfig = {
+  apiKey: "AIzaSyDREB_RGYvMCeNHL7t3CWfLo7402dsOOiE",
+  authDomain: "checklistedhinor.firebaseapp.com",
+  projectId: "checklistedhinor",
+  storageBucket: "checklistedhinor.firebasestorage.app",
+  messagingSenderId: "972633539581",
+  appId: "1:972633539581:android:1971e7f9cd4930c807cf94",
+};
+
+// Alias para compatibilidad
+export const FIREBASE_CONFIG = firebaseConfig;
 
 // Configuración de Storage
 export const STORAGE_CONFIG = {
@@ -12,4 +23,4 @@ export const STORAGE_CONFIG = {
 // Debug logs
 export const enableDebugLogs = true;
 
-console.log('🔥 Configuración de Firebase lista para React Native Firebase');
+console.log('🔥 Firebase configurado para React Native Firebase - usando google-services.json');

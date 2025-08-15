@@ -235,12 +235,12 @@ function GrupoChecklistScreen({ route, navigation }) {
     });
   }, [items, jefeNombre, obraNombre, instalacionNombre]);
 
-  // ✅ CARGAR FOTOS EXISTENTES cuando se cargan los items
+  // ✅ CARGAR FOTOS EXISTENTES cuando se cargan los items inicialmente
   React.useEffect(() => {
-    if (items && items.length > 0) {
+    if (items && items.length > 0 && Object.keys(itemPhotos).length === 0) {
       loadExistingPhotos();
     }
-  }, [items, loadExistingPhotos]);
+  }, [items.length, loadExistingPhotos, itemPhotos]); // Solo cuando cambie la cantidad de items, no cada update
 
   
 
@@ -278,9 +278,9 @@ function GrupoChecklistScreen({ route, navigation }) {
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
       
-      // Incluir solo el nombre real del usuario en el timestamp
-      const userName = usuario?.nombre || usuario || 'Usuario';
-      const timestamp = `${day}/${month}/${year} ${hours}:${minutes} - ${userName}`;
+      // Incluir solo el email del usuario en el timestamp
+      const userEmail = usuario?.email || usuario?.nombre || 'Usuario';
+      const timestamp = `${day}/${month}/${year} ${hours}:${minutes} - ${userEmail}`;
       
       const updatedObservations = selectedItem.observaciones 
         ? `${selectedItem.observaciones}\n[${timestamp}] ${newObservation.trim()}`

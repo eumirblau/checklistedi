@@ -1,4 +1,5 @@
-import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { getApp, getApps } from '@react-native-firebase/app';
+import auth, { FirebaseAuthTypes, getAuth } from '@react-native-firebase/auth';
 
 export type UsuarioAuth = {
   uid: string;
@@ -14,10 +15,33 @@ export type ErrorAutenticacion = {
 
 class AuthService {
   /**
+   * Verifica que Firebase esté inicializado
+   */
+  private ensureFirebaseInitialized() {
+    const apps = getApps();
+    if (apps.length === 0) {
+      throw new Error('Firebase no está inicializado. Verifica google-services.json');
+    }
+  }
+
+  /**
+   * Obtiene la instancia de auth
+   */
+  private getAuthInstance() {
+    return getAuth(getApp());
+  }
+
+  /**
    * Obtiene el usuario actualmente autenticado
    */
   getCurrentUser(): FirebaseAuthTypes.User | null {
-    return auth().currentUser;
+    try {
+      this.ensureFirebaseInitialized();
+      return this.getAuthInstance().currentUser;
+    } catch (error: any) {
+      console.error('Error al obtener usuario actual:', error);
+      return null;
+    }
   }
 
   /**
@@ -25,7 +49,9 @@ class AuthService {
    */
   async registrarUsuario(email: string, password: string): Promise<UsuarioAuth> {
     try {
-      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      this.ensureFirebaseInitialized();
+      const authInstance = this.getAuthInstance();
+      const userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
       const user = userCredential.user;
       
       return {
@@ -44,7 +70,9 @@ class AuthService {
    */
   async iniciarSesion(email: string, password: string): Promise<UsuarioAuth> {
     try {
-      const userCredential = await auth().signInWithEmailAndPassword(email, password);
+      this.ensureFirebaseInitialized();
+      const authInstance = this.getAuthInstance();
+      const userCredential = await authInstance.signInWithEmailAndPassword(email, password);
       const user = userCredential.user;
       
       return {
