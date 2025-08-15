@@ -50,6 +50,21 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
 
   // El modal solo se actualiza cuando el usuario lo solicita explícitamente
 
+  // Función para eliminar fotos duplicadas
+  const removeDuplicatePhotos = (photos: PhotoMetadata[]): PhotoMetadata[] => {
+    const seen = new Set();
+    return photos.filter(photo => {
+      // Crear una clave única basada en URL y fileName
+      const key = `${photo.url}-${photo.fileName}`;
+      if (seen.has(key)) {
+        console.log('🔄 [PhotoButton] Foto duplicada detectada y eliminada:', photo.fileName);
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  };
+
   const handleRenamePhoto = async () => {
     if (!photoToRename || !newFileName.trim()) {
       Alert.alert('Error', 'Por favor ingresa un nombre válido');
@@ -86,7 +101,12 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
           // Actualizar la foto en la lista local
           const updatedPhotos = modalPhotos.map(photo => 
             photo.id === photoToRename.id 
-              ? { ...photo, fileName: finalFileName, path: photo.path.replace(photoToRename.fileName, finalFileName) }
+              ? { 
+                  ...photo, 
+                  fileName: finalFileName, 
+                  path: photo.path.replace(photoToRename.fileName, finalFileName),
+                  url: photo.url ? photo.url.replace(photoToRename.fileName, finalFileName) : photo.url
+                }
               : photo
           );
           setModalPhotos(updatedPhotos);
@@ -289,7 +309,7 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
             <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 10 }}>{modalTitle}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
               {modalPhotos.map((photo, idx) => (
-                <View key={photo.id || idx} style={{ marginRight: 12, alignItems: 'center' }}>
+                <View key={`photo-${idx}-${photo.id || photo.fileName || photo.url.slice(-10)}`} style={{ marginRight: 12, alignItems: 'center' }}>
                   <TouchableOpacity onPress={() => setZoomPhoto(photo)}>
                     <Image
                       source={{ uri: photo.url }}

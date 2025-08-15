@@ -1,14 +1,14 @@
 import React from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    RefreshControl,
-    Text as RNText,
-    StatusBar,
-    StyleSheet,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  Text as RNText,
+  StatusBar,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useCallback, useEffect, useState } from '../react-hooks';
 import ApiService from '../services/ApiService';
@@ -196,7 +196,10 @@ const ObrasScreen = ({ navigation, route }: Props) => {
         <FlatList
           data={obras || []}
           renderItem={renderObra}
-          keyExtractor={(item: Obra) => item.id.toString()}
+          keyExtractor={(item: Obra, index: number) => {
+            // Usar índice para garantizar unicidad, incluso con URLs duplicadas
+            return `obra-${index}-${item?.id || 'sin-id'}`;
+          }}
           contentContainerStyle={styles.listContainer}
           refreshControl={
             <RefreshControl 

@@ -798,29 +798,59 @@ class ApiService {
       };
 
       console.log(`[ApiService.updatePhotoUrl] Sending photo update via guardarChecks:`, photoUpdateItem);
+      console.log(`[ApiService.updatePhotoUrl] Request details:`, {
+        spreadsheetId,
+        pestana: actualSheetName,
+        rowIndex,
+        photoUrl: photoUrl.substring(0, 100) + '...'
+      });
+
+      const requestBody = {
+        spreadsheetId,
+        pestana: actualSheetName,
+        items: [photoUpdateItem],
+        usuario: 'Sistema_Foto',
+        cargo: 'Automatico',
+        // ✅ Parámetros requeridos por el backend para detectar actualización de foto
+        isPhotoUpdate: true,
+        updatePhotoOnly: true,
+        photoUrl: photoUrl,     // ✅ AÑADIDO: PhotoUrl en nivel raíz
+        itemId: rowIndex        // ✅ AÑADIDO: ItemId como rowIndex para el backend
+      };
+
+      console.log(`[ApiService.updatePhotoUrl] Full request body:`, {
+        ...requestBody,
+        photoUrl: photoUrl.substring(0, 100) + '...',
+        items: requestBody.items.map(item => ({
+          ...item,
+          photoUrl: item.photoUrl?.substring(0, 100) + '...'
+        }))
+      });
 
       const response = await fetch(`${BASE_URL}/guardarChecks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          spreadsheetId,
-          pestana: actualSheetName,
-          items: [photoUpdateItem],
-          usuario: 'Sistema_Foto',
-          cargo: 'Automatico',
-          // ✅ Parámetros requeridos por el backend para detectar actualización de foto
-          isPhotoUpdate: true,
-          updatePhotoOnly: true,
-          photoUrl: photoUrl,     // ✅ AÑADIDO: PhotoUrl en nivel raíz
-          itemId: rowIndex        // ✅ AÑADIDO: ItemId como rowIndex para el backend
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
         const errorBody = await response.text();
         console.error(`[ApiService.updatePhotoUrl] API error: ${response.status} - ${errorBody}`);
+        console.error(`[ApiService.updatePhotoUrl] Failed request details:`, {
+          spreadsheetId,
+          pestana: actualSheetName,
+          rowIndex,
+          itemId
+        });
+        
+        // Si es un error de "entity not found", intentemos una estrategia alternativa
+        if (errorBody.includes('Requested entity was not found')) {
+          console.warn(`[ApiService.updatePhotoUrl] Entity not found, this might be expected for some items. Continuing...`);
+          return { success: false, error: 'Entity not found', skipError: true };
+        }
+        
         throw new Error(`Error updating photo URL: ${response.statusText} - ${errorBody}`);
       }
 

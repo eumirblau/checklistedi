@@ -130,7 +130,7 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
       obraIdInterno: obraId,
       spreadsheetIdReal: realSpreadsheetId,
       obraNombre: obraNombre,
-    });    navigation.navigate('Checklist', {
+    });    navigation.navigate('ChecklistScreen', {
       instalacionId: instalacion.id,
       instalacionNombre: instalacion.nombre,
       spreadsheetId: realSpreadsheetId,
@@ -249,8 +249,8 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
           data={instalaciones || []}
           renderItem={renderInstalacion}
           keyExtractor={(item: Instalacion, index: number) => {
-            const safeId = item?.id || item?.nombre || `instalacion-${index}`;
-            return String(safeId);
+            // Usar índice para garantizar unicidad
+            return `instalacion-${index}-${item?.id || item?.nombre || 'sin-id'}`;
           }}
           contentContainerStyle={styles.listContainer}
           refreshControl={

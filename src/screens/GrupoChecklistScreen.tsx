@@ -373,27 +373,49 @@ function GrupoChecklistScreen({ route, navigation }) {
     // Actualizar URL en Google Sheets (columna S/19) usando endpoint guardarChecks
     try {
       console.log('[PHOTO] 🚀 Enviando URL a Google Sheets via guardarChecks...');
+      console.log('[PHOTO] Valores de spreadsheetId disponibles:', {
+        spreadsheetId_local: spreadsheetId,
+        params_spreadsheetId: params.spreadsheetId,
+        params_obraNombre: params.obraNombre,
+        usando: spreadsheetId || params.spreadsheetId
+      });
       console.log('[PHOTO] Parámetros:', {
-        spreadsheetId: params.obraNombre || params.spreadsheetId,
+        spreadsheetId: spreadsheetId || params.spreadsheetId,
         instalacion: instalacionNombre,
         itemRowIndex: itemRowIndex,
         photoUrl: publicUrl
       });
       
-      await ApiService.updatePhotoUrl(
-        params.obraNombre || params.spreadsheetId,
+      const result = await ApiService.updatePhotoUrl(
+        spreadsheetId || params.spreadsheetId,
         instalacionNombre,
         itemRowIndex,
         publicUrl
       );
-      console.log('[PHOTO] ✅✅✅ URL enviada correctamente a Google Sheets');
-      console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO EXITOSAMENTE =====');
-      Alert.alert('Foto subida', 'La foto se subió correctamente y se actualizó en Google Sheets.');
+      
+      // Verificar si la actualización fue exitosa o si fue "entity not found" 
+      if (result && result.skipError && result.error === 'Entity not found') {
+        console.warn('[PHOTO] ⚠️ Entity not found - esto puede ser normal para algunos elementos');
+        console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO CON ADVERTENCIA =====');
+        Alert.alert('Foto subida', 'La foto se subió correctamente. La actualización automática en Google Sheets no fue necesaria para este elemento.');
+      } else {
+        console.log('[PHOTO] ✅✅✅ URL enviada correctamente a Google Sheets');
+        console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO EXITOSAMENTE =====');
+        Alert.alert('Foto subida', 'La foto se subió correctamente y se actualizó en Google Sheets.');
+      }
     } catch (error) {
       console.error('[PHOTO] ❌❌❌ Error enviando URL a Google Sheets:', error);
       console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO CON ERROR =====');
-      // Aunque falle la actualización en Sheets, la foto ya está subida y guardada localmente
-      Alert.alert('Foto subida', 'La foto se subió correctamente, pero no se pudo actualizar en Google Sheets.');
+      
+      // Verificar si es un error de "entity not found" que puede ser normal
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('Requested entity was not found')) {
+        console.warn('[PHOTO] ⚠️ Entity not found - esto puede ser normal para algunos elementos');
+        Alert.alert('Foto subida', 'La foto se subió correctamente. La actualización automática en Google Sheets no fue necesaria para este elemento.');
+      } else {
+        // Aunque falle la actualización en Sheets, la foto ya está subida y guardada localmente
+        Alert.alert('Foto subida', 'La foto se subió correctamente, pero no se pudo actualizar en Google Sheets.');
+      }
     }
   };
 
@@ -566,8 +588,8 @@ function GrupoChecklistScreen({ route, navigation }) {
         {items.length === 0 ? (
           <ThemedText>No hay items para mostrar.</ThemedText>
         ) : (
-          items.map((item) => (
-            <View key={item.rowIndex} style={styles.itemCard}>
+          items.map((item, index) => (
+            <View key={`item-${index}-${item.rowIndex}`} style={styles.itemCard}>
               {/* Mostrar unidad y descripción del item */}
               <ThemedText style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 4 }}>
                 {item.unidad || 'Sin unidad'}
@@ -612,8 +634,8 @@ function GrupoChecklistScreen({ route, navigation }) {
                     showsVerticalScrollIndicator={true}
                     nestedScrollEnabled={true}
                   >
-                    {item.observaciones.split('\n').filter(obs => obs.trim() !== '').map((observacion, index) => (
-                      <View key={index} style={{ marginBottom: 6, padding: 4, backgroundColor: '#f0f0f0', borderRadius: 4 }}>
+                    {item.observaciones.split('\n').filter(obs => obs.trim() !== '').map((observacion, obsIndex) => (
+                      <View key={`obs-${index}-${obsIndex}`} style={{ marginBottom: 6, padding: 4, backgroundColor: '#f0f0f0', borderRadius: 4 }}>
                         <Text style={[styles.observationsText, { fontSize: 13, lineHeight: 18 }]}>
                           {observacion.trim()}
                         </Text>

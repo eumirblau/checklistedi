@@ -145,9 +145,9 @@ const JefesScreen = ({ navigation, route }: Props) => {
         <FlatList
           data={jefes || []}
           renderItem={renderJefe}
-          keyExtractor={(item: JefeDeGrupo) => {
-            const key = item?.id ? String(item.id) : `jefe-${Math.random()}`;
-            return key;
+          keyExtractor={(item: JefeDeGrupo, index: number) => {
+            // Usar índice para garantizar unicidad
+            return `jefe-${index}-${item?.id || 'sin-id'}`;
           }}
           contentContainerStyle={styles.listContainer}
           refreshControl={
