@@ -33,15 +33,35 @@ export const ApiServiceMock = {
     // Simular delay de red
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Simular que todos los jefes tienen obras
-    return [
+    // Simular diferentes obras según el jefe
+    const obras = [
       {
-        id: '1',
-        nombre: `Obra de ${jefeNombre}`,
-        ubicacion: 'Madrid',
-        estado: 'ACTIVA'
+        id: 'OBR001',
+        nombre: `Proyecto Residencial ${jefeNombre}`,
+        ubicacion: 'Madrid Centro',
+        estado: 'ACTIVA',
+        descripcion: 'Instalación eléctrica completa',
+        spreadsheetId: 'mock-spreadsheet-1'
+      },
+      {
+        id: 'OBR002', 
+        nombre: `Centro Comercial ${jefeNombre}`,
+        ubicacion: 'Las Rozas',
+        estado: 'ACTIVA',
+        descripcion: 'Sistema eléctrico comercial',
+        spreadsheetId: 'mock-spreadsheet-2'
+      },
+      {
+        id: 'OBR003',
+        nombre: `Hospital ${jefeNombre}`,
+        ubicacion: 'Alcobendas',
+        estado: 'ACTIVA', 
+        descripcion: 'Instalación hospitalaria crítica',
+        spreadsheetId: 'mock-spreadsheet-3'
       }
     ];
+
+    return obras;
   }
 };
 

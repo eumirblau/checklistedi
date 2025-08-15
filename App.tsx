@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import InstalacionesScreen from './src/screens/InstalacionesScreen';
 import JefesScreen from './src/screens/JefesScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import ObrasScreen from './src/screens/ObrasScreen';
 
 export default function App() {
   console.log('App iniciando...');
   const [currentScreen, setCurrentScreen] = useState('menu');
   const [contador, setContador] = useState(0);
   const [userData, setUserData] = useState(null);
+  const [selectedJefe, setSelectedJefe] = useState(null);
+  const [selectedObra, setSelectedObra] = useState(null);
   
   const mostrarAlerta = () => {
     Alert.alert('¡Funciona!', `Has presionado ${contador + 1} veces`);
@@ -45,6 +49,11 @@ export default function App() {
       const mockNavigation = {
         navigate: (screen: string, params?: any) => {
           if (screen === 'Obras') {
+            setSelectedJefe({
+              id: params?.jefeId,
+              nombre: params?.jefeNombre,
+              usuario: params?.usuario
+            });
             setCurrentScreen('obras');
           }
         }
@@ -66,33 +75,64 @@ export default function App() {
     }
     
     if (currentScreen === 'obras') {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.text}>🏗️ Obras Screen</Text>
-          <Text style={styles.subtitle}>Selección de proyecto</Text>
-          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('instalaciones')}>
-            <Text style={styles.buttonText}>Continuar → Instalaciones</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
-            <Text style={styles.buttonText}>🏠 Menú</Text>
-          </TouchableOpacity>
-        </View>
-      );
+      // Mock navigation y route para ObrasScreen
+      const mockNavigation = {
+        navigate: (screen: string, params?: any) => {
+          if (screen === 'Instalaciones') {
+            setSelectedObra({
+              id: params?.obraId,
+              nombre: params?.obraNombre,
+              jefeNombre: params?.jefeNombre,
+              usuario: params?.usuario
+            });
+            setCurrentScreen('instalaciones');
+          }
+        }
+      };
+      
+      const mockRoute = {
+        params: {
+          jefeId: selectedJefe?.id || 'jefe-test',
+          jefeNombre: selectedJefe?.nombre || 'Jefe de Prueba',
+          usuario: userData || {
+            id: '1',
+            nombre: 'Usuario de prueba',
+            cargo: 'Técnico',
+            email: '',
+            rol: 'TECNICO'
+          }
+        }
+      };
+      
+      return <ObrasScreen navigation={mockNavigation} route={mockRoute} />;
     }
     
     if (currentScreen === 'instalaciones') {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.text}>⚡ Instalaciones Screen</Text>
-          <Text style={styles.subtitle}>Selección de instalación</Text>
-          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('checklist')}>
-            <Text style={styles.buttonText}>Continuar → Checklist</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
-            <Text style={styles.buttonText}>🏠 Menú</Text>
-          </TouchableOpacity>
-        </View>
-      );
+      // Mock navigation y route para InstalacionesScreen
+      const mockNavigation = {
+        navigate: (screen: string, params?: any) => {
+          if (screen === 'ChecklistScreen') {
+            setCurrentScreen('checklist');
+          }
+        }
+      };
+      
+      const mockRoute = {
+        params: {
+          obraId: selectedObra?.id || 'obra-test',
+          obraNombre: selectedObra?.nombre || 'Obra de Prueba',
+          jefeNombre: selectedObra?.jefeNombre || selectedJefe?.nombre || 'Jefe de Prueba',
+          usuario: userData || {
+            id: '1',
+            nombre: 'Usuario de prueba',
+            cargo: 'Técnico',
+            email: '',
+            rol: 'TECNICO'
+          }
+        }
+      };
+      
+      return <InstalacionesScreen navigation={mockNavigation} route={mockRoute} />;
     }
     
     if (currentScreen === 'checklist') {
