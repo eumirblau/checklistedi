@@ -12,18 +12,42 @@ export default function App() {
   };
 
   const screens = [
-    { id: 'login', name: 'Login' },
-    { id: 'obras', name: 'Obras' },
-    { id: 'checklist', name: 'Checklist' },
+    { id: 'login', name: '1. Login', next: 'jefes' },
+    { id: 'jefes', name: '2. Jefes', next: 'obras' },
+    { id: 'obras', name: '3. Obras', next: 'instalaciones' },
+    { id: 'instalaciones', name: '4. Instalaciones', next: 'checklist' },
+    { id: 'checklist', name: '5. Checklist', next: 'grupo' },
+    { id: 'grupo', name: '6. Grupo Checklist', next: 'menu' },
   ];
 
   const renderScreen = () => {
+    const currentScreenData = screens.find(s => s.id === currentScreen);
+    
     if (currentScreen === 'login') {
       return (
         <View style={styles.container}>
-          <Text style={styles.text}>Login Screen</Text>
-          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('menu')}>
-            <Text style={styles.buttonText}>Volver al Menú</Text>
+          <Text style={styles.text}>👤 Login Screen</Text>
+          <Text style={styles.subtitle}>Autenticación de usuario</Text>
+          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('jefes')}>
+            <Text style={styles.buttonText}>Continuar → Jefes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
+            <Text style={styles.buttonText}>🏠 Menú</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    if (currentScreen === 'jefes') {
+      return (
+        <View style={styles.container}>
+          <Text style={styles.text}>👷 Jefes Screen</Text>
+          <Text style={styles.subtitle}>Selección de supervisor</Text>
+          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('obras')}>
+            <Text style={styles.buttonText}>Continuar → Obras</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
+            <Text style={styles.buttonText}>🏠 Menú</Text>
           </TouchableOpacity>
         </View>
       );
@@ -32,9 +56,28 @@ export default function App() {
     if (currentScreen === 'obras') {
       return (
         <View style={styles.container}>
-          <Text style={styles.text}>Obras Screen</Text>
-          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('menu')}>
-            <Text style={styles.buttonText}>Volver al Menú</Text>
+          <Text style={styles.text}>🏗️ Obras Screen</Text>
+          <Text style={styles.subtitle}>Selección de proyecto</Text>
+          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('instalaciones')}>
+            <Text style={styles.buttonText}>Continuar → Instalaciones</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
+            <Text style={styles.buttonText}>🏠 Menú</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    if (currentScreen === 'instalaciones') {
+      return (
+        <View style={styles.container}>
+          <Text style={styles.text}>⚡ Instalaciones Screen</Text>
+          <Text style={styles.subtitle}>Selección de instalación</Text>
+          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('checklist')}>
+            <Text style={styles.buttonText}>Continuar → Checklist</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
+            <Text style={styles.buttonText}>🏠 Menú</Text>
           </TouchableOpacity>
         </View>
       );
@@ -43,9 +86,28 @@ export default function App() {
     if (currentScreen === 'checklist') {
       return (
         <View style={styles.container}>
-          <Text style={styles.text}>Checklist Screen</Text>
+          <Text style={styles.text}>✅ Checklist Screen</Text>
+          <Text style={styles.subtitle}>Lista de verificación</Text>
+          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('grupo')}>
+            <Text style={styles.buttonText}>Continuar → Grupo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
+            <Text style={styles.buttonText}>🏠 Menú</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    
+    if (currentScreen === 'grupo') {
+      return (
+        <View style={styles.container}>
+          <Text style={styles.text}>📊 Grupo Checklist</Text>
+          <Text style={styles.subtitle}>Resumen y agrupación</Text>
           <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('menu')}>
-            <Text style={styles.buttonText}>Volver al Menú</Text>
+            <Text style={styles.buttonText}>✅ Finalizar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
+            <Text style={styles.buttonText}>🏠 Menú</Text>
           </TouchableOpacity>
         </View>
       );
@@ -56,7 +118,7 @@ export default function App() {
       <View style={styles.container}>
         <Text style={styles.text}>ChecklistApp - Edhinor</Text>
         <Text style={styles.subtitle}>Menú Principal 🏠</Text>
-        <Text style={styles.version}>Con navegación básica</Text>
+        <Text style={styles.version}>Flujo completo de navegación</Text>
         
         <TouchableOpacity style={styles.button} onPress={mostrarAlerta}>
           <Text style={styles.buttonText}>Probar Funcionalidad</Text>
@@ -65,7 +127,7 @@ export default function App() {
         <Text style={styles.counter}>Contador: {contador}</Text>
         
         <View style={styles.menuContainer}>
-          <Text style={styles.menuTitle}>Pantallas disponibles:</Text>
+          <Text style={styles.menuTitle}>Flujo de pantallas:</Text>
           {screens.map(screen => (
             <TouchableOpacity
               key={screen.id}
@@ -152,5 +214,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  backButton: {
+    backgroundColor: '#6c757d',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 6,
+    marginTop: 15,
   },
 });
