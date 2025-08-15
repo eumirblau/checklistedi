@@ -10,7 +10,6 @@ web-build/
 expo-env.d.ts
 
 # Evitar duplicados de archivos
-App.tsx
 components/ui/
 src/components/ui/
 src/services/FirebaseStorageReal.ts
