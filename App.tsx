@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import JefesScreen from './src/screens/JefesScreen';
 import LoginScreen from './src/screens/LoginScreen';
 
 export default function App() {
@@ -40,18 +41,28 @@ export default function App() {
     }
     
     if (currentScreen === 'jefes') {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.text}>👷 Jefes Screen</Text>
-          <Text style={styles.subtitle}>Selección de supervisor</Text>
-          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('obras')}>
-            <Text style={styles.buttonText}>Continuar → Obras</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
-            <Text style={styles.buttonText}>🏠 Menú</Text>
-          </TouchableOpacity>
-        </View>
-      );
+      // Mock navigation y route para JefesScreen
+      const mockNavigation = {
+        navigate: (screen: string, params?: any) => {
+          if (screen === 'Obras') {
+            setCurrentScreen('obras');
+          }
+        }
+      };
+      
+      const mockRoute = {
+        params: {
+          usuario: userData || {
+            id: '1',
+            nombre: 'Usuario de prueba',
+            cargo: 'Técnico',
+            email: '',
+            rol: 'TECNICO'
+          }
+        }
+      };
+      
+      return <JefesScreen navigation={mockNavigation} route={mockRoute} />;
     }
     
     if (currentScreen === 'obras') {
