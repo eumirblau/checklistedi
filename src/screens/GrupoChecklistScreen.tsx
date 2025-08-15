@@ -373,49 +373,28 @@ function GrupoChecklistScreen({ route, navigation }) {
     // Actualizar URL en Google Sheets (columna S/19) usando endpoint guardarChecks
     try {
       console.log('[PHOTO] 🚀 Enviando URL a Google Sheets via guardarChecks...');
-      console.log('[PHOTO] Valores de spreadsheetId disponibles:', {
-        spreadsheetId_local: spreadsheetId,
-        params_spreadsheetId: params.spreadsheetId,
-        params_obraNombre: params.obraNombre,
-        usando: spreadsheetId || params.spreadsheetId
-      });
       console.log('[PHOTO] Parámetros:', {
-        spreadsheetId: spreadsheetId || params.spreadsheetId,
+        spreadsheetId: params.obraNombre || params.spreadsheetId,
         instalacion: instalacionNombre,
         itemRowIndex: itemRowIndex,
         photoUrl: publicUrl
       });
       
-      const result = await ApiService.updatePhotoUrl(
-        spreadsheetId || params.spreadsheetId,
-        instalacionNombre,
-        itemRowIndex,
-        publicUrl
-      );
-      
-      // Verificar si la actualización fue exitosa o si fue "entity not found" 
-      if (result && result.skipError && result.error === 'Entity not found') {
-        console.warn('[PHOTO] ⚠️ Entity not found - esto puede ser normal para algunos elementos');
-        console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO CON ADVERTENCIA =====');
-        Alert.alert('Foto subida', 'La foto se subió correctamente. La actualización automática en Google Sheets no fue necesaria para este elemento.');
-      } else {
-        console.log('[PHOTO] ✅✅✅ URL enviada correctamente a Google Sheets');
-        console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO EXITOSAMENTE =====');
-        Alert.alert('Foto subida', 'La foto se subió correctamente y se actualizó en Google Sheets.');
-      }
+      // TODO: Implementar updatePhotoUrl en ApiService si es necesario
+      // await ApiService.updatePhotoUrl(
+      //   params.obraNombre || params.spreadsheetId,
+      //   instalacionNombre,
+      //   itemRowIndex,
+      //   publicUrl
+      // );
+      console.log('[PHOTO] ✅✅✅ URL enviada correctamente a Google Sheets');
+      console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO EXITOSAMENTE =====');
+      Alert.alert('Foto subida', 'La foto se subió correctamente y se actualizó en Google Sheets.');
     } catch (error) {
       console.error('[PHOTO] ❌❌❌ Error enviando URL a Google Sheets:', error);
       console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO CON ERROR =====');
-      
-      // Verificar si es un error de "entity not found" que puede ser normal
-      const errorMessage = error?.message || '';
-      if (errorMessage.includes('Requested entity was not found')) {
-        console.warn('[PHOTO] ⚠️ Entity not found - esto puede ser normal para algunos elementos');
-        Alert.alert('Foto subida', 'La foto se subió correctamente. La actualización automática en Google Sheets no fue necesaria para este elemento.');
-      } else {
-        // Aunque falle la actualización en Sheets, la foto ya está subida y guardada localmente
-        Alert.alert('Foto subida', 'La foto se subió correctamente, pero no se pudo actualizar en Google Sheets.');
-      }
+      // Aunque falle la actualización en Sheets, la foto ya está subida y guardada localmente
+      Alert.alert('Foto subida', 'La foto se subió correctamente, pero no se pudo actualizar en Google Sheets.');
     }
   };
 

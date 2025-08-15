@@ -249,8 +249,8 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
           data={instalaciones || []}
           renderItem={renderInstalacion}
           keyExtractor={(item: Instalacion, index: number) => {
-            // Usar índice para garantizar unicidad
-            return `instalacion-${index}-${item?.id || item?.nombre || 'sin-id'}`;
+            const safeId = item?.id || item?.nombre || `instalacion-${index}`;
+            return String(safeId);
           }}
           contentContainerStyle={styles.listContainer}
           refreshControl={

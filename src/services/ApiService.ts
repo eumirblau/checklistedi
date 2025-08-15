@@ -320,61 +320,63 @@ class ApiService {
       // Necesitamos mapear cada fila (array) a un objeto ChecklistItem
       console.log(`📊 [ApiService.getItemsDeChecklist] Procesando ${itemsData.length} filas de datos`);
 
-      return itemsData.map((row: any[], index: number) => {
-        // Verificar que sea un array válido
-        if (!Array.isArray(row)) {
-          console.log(`⚠️ [ApiService.getItemsDeChecklist] Fila ${index} no es array:`, row);
-          return null;
-        }
+      return itemsData
+        .map((row: any[], index: number) => {
+          // Verificar que sea un array válido
+          if (!Array.isArray(row)) {
+            console.log(`⚠️ [ApiService.getItemsDeChecklist] Fila ${index} no es array:`, row);
+            return null;
+          }
 
-        // Mapear las columnas según la estructura de Google Sheets
-        // 🔧 ACTUALIZADO: Columna P (row[15]) = Observaciones según reporte del usuario
-        const unidad = row[1] ? String(row[1]).trim() : '';
-        const descripcion = row[5] ? String(row[5]).trim() : '';
-        const s_contrato = row[11] ? String(row[11]).trim() : ''; // 🔧 FIX: Columna L = row[11] (no row[12])
-        const fechapp = row[14] ? String(row[14]).trim() : ''; // Intentar columna O para fechapp
-        const observaciones = row[15] ? String(row[15]).trim() : ''; // 🔧 FIX: Columna P = row[15]
+          // Mapear las columnas según la estructura de Google Sheets
+          // 🔧 ACTUALIZADO: Columna P (row[15]) = Observaciones según reporte del usuario
+          const unidad = row[1] ? String(row[1]).trim() : '';
+          const descripcion = row[5] ? String(row[5]).trim() : '';
+          const s_contrato = row[11] ? String(row[11]).trim() : ''; // 🔧 FIX: Columna L = row[11] (no row[12])
+          const fechapp = row[14] ? String(row[14]).trim() : ''; // Intentar columna O para fechapp
+          const observaciones = row[15] ? String(row[15]).trim() : ''; // 🔧 FIX: Columna P = row[15]
 
-        // Determinar si está completado
-        const isCompleted = s_contrato === '√' || s_contrato === 'true';
+          // Determinar si está completado
+          const isCompleted = s_contrato === '√' || s_contrato === 'true';
 
-        // Crear ID único
-        const itemId = `${spreadsheetId}-${index}-${(unidad || descripcion || 'item').replace(/\s+/g, '-')}`;
+          // Crear ID único
+          const itemId = `${spreadsheetId}-${index}-${(unidad || descripcion || 'item').replace(/\s+/g, '-')}`;
 
-        console.log(`[ApiService.getItemsDeChecklist] Procesando fila ${index}:`, {
-          unidad,
-          descripcion,
-          s_contrato,
-          observaciones: observaciones || 'SIN OBSERVACIONES',
-          fechapp,
-          isCompleted,
-          rowIndex: index + 2 // 🔧 FIX: rowIndex correcto - idx 0 = fila 2, idx 1 = fila 3, etc.
+          console.log(`[ApiService.getItemsDeChecklist] Procesando fila ${index}:`, {
+            unidad,
+            descripcion,
+            s_contrato,
+            observaciones: observaciones || 'SIN OBSERVACIONES',
+            fechapp,
+            isCompleted,
+            rowIndex: index + 2 // 🔧 FIX: rowIndex correcto - idx 0 = fila 2, idx 1 = fila 3, etc.
+          });
+
+          return {
+            id: itemId,
+            descripcion: descripcion,
+            completado: isCompleted,
+            observaciones: observaciones || undefined,
+            unidad: unidad || undefined,
+            s_contrato: s_contrato || undefined,
+            fechapp: fechapp || undefined,
+            cantidad: undefined,
+            fechaCompletado: isCompleted ? (fechapp || new Date().toISOString()) : undefined,
+            rowIndex: index + 2, // 🔧 FIX: Índice real de la fila en Google Sheets (A2=2, A3=3, etc.)
+            meta: undefined,
+            actual: undefined,
+            subItems: [],
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => {
+          // Filtrar items nulos y que tengan contenido
+          if (!item) return false;
+          const hasContent = Boolean(item.unidad || item.descripcion);
+          if (!hasContent) {
+            console.log('[ApiService.getItemsDeChecklist] Filtrando item vacío:', item);
+          }
+          return hasContent;
         });
-
-        return {
-          id: itemId,
-          descripcion: descripcion,
-          completado: isCompleted,
-          observaciones: observaciones || undefined,
-          unidad: unidad || undefined,
-          s_contrato: s_contrato || undefined,
-          fechapp: fechapp || undefined,
-          cantidad: undefined,
-          fechaCompletado: isCompleted ? (fechapp || new Date().toISOString()) : undefined,
-          rowIndex: index + 2, // 🔧 FIX: Índice real de la fila en Google Sheets (A2=2, A3=3, etc.)
-          meta: undefined,
-          actual: undefined,
-          subItems: [],
-        };
-      }).filter(item => {
-        // Filtrar items nulos y que tengan contenido
-        if (!item) return false;
-        const hasContent = Boolean(item.unidad || item.descripcion);
-        if (!hasContent) {
-          console.log('[ApiService.getItemsDeChecklist] Filtrando item vacío:', item);
-        }
-        return hasContent;
-      });
     } catch (error) {
       console.error(`[ApiService.getItemsDeChecklist] Error fetching or processing items for ${obraIdOrName}/${instalacionNombre} (ID: ${spreadsheetId}):`, error);
       throw error;
@@ -740,129 +742,5 @@ class ApiService {
       return obrasOffline;
     }
   }
-
-  // Nueva función para actualizar la URL de foto en la columna S (19)
-  // Función para actualizar URL de foto usando endpoint guardarChecks existente
-  async updatePhotoUrl(
-    obraIdOrName: string,
-    instalacionNombre: string,
-    itemId: string,
-    photoUrl: string
-  ): Promise<any> {
-    console.log(`[ApiService.updatePhotoUrl] Called with obraIdOrName: ${obraIdOrName}, instalacion: ${instalacionNombre}, itemId: ${itemId}`);
-    console.log(`[ApiService.updatePhotoUrl] Photo URL to update: ${photoUrl}`);
-
-    // Extract the actual sheet name from the instalacionNombre if it's a composite ID
-    let actualSheetName = instalacionNombre;
-    if (instalacionNombre.includes('-') && instalacionNombre.length > 40) {
-      const parts = instalacionNombre.split('-');
-      if (parts.length >= 3) {
-        actualSheetName = parts.slice(1, -1).join('-');
-        console.log(`[ApiService.updatePhotoUrl] Extracted sheet name '${actualSheetName}' from composite ID '${instalacionNombre}'`);
-      }
-    }
-
-    // Map to real spreadsheet ID
-    const spreadsheetId = await this.mapToRealSpreadsheetId(obraIdOrName);
-    console.log(`[ApiService.updatePhotoUrl] Mapped obraIdOrName '${obraIdOrName}' to spreadsheetId: ${spreadsheetId}`);
-
-    // Extraer rowIndex del itemId - manejar diferentes formatos
-    let rowIndex = null;
-    
-    // Caso 1: itemId es solo un número (ej: "11")
-    if (/^\d+$/.test(itemId)) {
-      rowIndex = parseInt(itemId);
-      console.log(`[ApiService.updatePhotoUrl] ItemId is numeric, using as rowIndex: ${rowIndex}`);
-    } 
-    // Caso 2: itemId es completo (ej: "15UNDktnDzB_8lHkxx4QjKYRfABX4_M2wjCXx61Wh474-9-Aérea-ó-enterrada")
-    else {
-      const parts = itemId.split('-');
-      rowIndex = parts.length > 1 ? parseInt(parts[parts.length - 2]) : null;
-      console.log(`[ApiService.updatePhotoUrl] Extracting rowIndex from full itemId: ${rowIndex}`);
-    }
-    
-    if (!rowIndex || isNaN(rowIndex)) {
-      throw new Error(`No se pudo extraer rowIndex válido del itemId: ${itemId}`);
-    }
-
-    console.log(`[ApiService.updatePhotoUrl] Final rowIndex: ${rowIndex} from itemId: ${itemId}`);
-
-    try {
-      // Crear item especial para actualización de foto usando guardarChecks
-      const photoUpdateItem = {
-        id: itemId,
-        rowIndex: rowIndex,
-        photoUrl: photoUrl,
-        // Flag especial para indicar que es actualización de foto únicamente
-        isPhotoUpdate: true
-      };
-
-      console.log(`[ApiService.updatePhotoUrl] Sending photo update via guardarChecks:`, photoUpdateItem);
-      console.log(`[ApiService.updatePhotoUrl] Request details:`, {
-        spreadsheetId,
-        pestana: actualSheetName,
-        rowIndex,
-        photoUrl: photoUrl.substring(0, 100) + '...'
-      });
-
-      const requestBody = {
-        spreadsheetId,
-        pestana: actualSheetName,
-        items: [photoUpdateItem],
-        usuario: 'Sistema_Foto',
-        cargo: 'Automatico',
-        // ✅ Parámetros requeridos por el backend para detectar actualización de foto
-        isPhotoUpdate: true,
-        updatePhotoOnly: true,
-        photoUrl: photoUrl,     // ✅ AÑADIDO: PhotoUrl en nivel raíz
-        itemId: rowIndex        // ✅ AÑADIDO: ItemId como rowIndex para el backend
-      };
-
-      console.log(`[ApiService.updatePhotoUrl] Full request body:`, {
-        ...requestBody,
-        photoUrl: photoUrl.substring(0, 100) + '...',
-        items: requestBody.items.map(item => ({
-          ...item,
-          photoUrl: item.photoUrl?.substring(0, 100) + '...'
-        }))
-      });
-
-      const response = await fetch(`${BASE_URL}/guardarChecks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error(`[ApiService.updatePhotoUrl] API error: ${response.status} - ${errorBody}`);
-        console.error(`[ApiService.updatePhotoUrl] Failed request details:`, {
-          spreadsheetId,
-          pestana: actualSheetName,
-          rowIndex,
-          itemId
-        });
-        
-        // Si es un error de "entity not found", intentemos una estrategia alternativa
-        if (errorBody.includes('Requested entity was not found')) {
-          console.warn(`[ApiService.updatePhotoUrl] Entity not found, this might be expected for some items. Continuing...`);
-          return { success: false, error: 'Entity not found', skipError: true };
-        }
-        
-        throw new Error(`Error updating photo URL: ${response.statusText} - ${errorBody}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ [ApiService.updatePhotoUrl] Photo URL updated successfully via guardarChecks:', result);
-      return result;
-
-    } catch (error) {
-      console.error('❌ [ApiService.updatePhotoUrl] Error updating photo URL via guardarChecks:', error);
-      throw error;
-    }
-  }
 }
 export default new ApiService();
-

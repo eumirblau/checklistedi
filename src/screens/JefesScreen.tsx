@@ -146,8 +146,8 @@ const JefesScreen = ({ navigation, route }: Props) => {
           data={jefes || []}
           renderItem={renderJefe}
           keyExtractor={(item: JefeDeGrupo, index: number) => {
-            // Usar índice para garantizar unicidad
-            return `jefe-${index}-${item?.id || 'sin-id'}`;
+            const key = item?.id ? String(item.id) : `jefe-${index}`;
+            return key;
           }}
           contentContainerStyle={styles.listContainer}
           refreshControl={
