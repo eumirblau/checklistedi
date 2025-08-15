@@ -11,20 +11,10 @@ export default function App() {
       <Stack.Navigator
         initialRouteName="Login"
         screenOptions={{
-          headerStyle: {
-            backgroundColor: '#667eea',
-          },
-          headerTintColor: '#fff',
-          headerTitleStyle: {
-            fontWeight: 'bold',
-          },
+          headerShown: false
         }}
       >
-        <Stack.Screen 
-          name="Login" 
-          component={LoginScreen}
-          options={{ title: 'ChecklistApp' }}
-        />
+        <Stack.Screen name="Login" component={LoginScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
