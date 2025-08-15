@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Image,
     ScrollView,
@@ -10,7 +11,8 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { RolUsuario, Usuario } from '../types';
+import AuthService from '../services/AuthService';
+import { RolUsuario, Usuario, UsuarioAuth } from '../types';
 
 type LoginScreenNavigationProp = any;
 
@@ -18,39 +20,154 @@ interface Props {
   navigation: LoginScreenNavigationProp;
 }
 
+const authService = new AuthService();
+
 const LoginScreen = ({ navigation }: Props) => {
-  const [usuario, setUsuario] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
-  const handleLogin = async () => {
-    if (!usuario.trim()) {
-      Alert.alert('Error', 'Por favor ingrese su nombre de usuario');
+  // Escuchar cambios en el estado de autenticación
+  useEffect(() => {
+    const unsubscribe = authService.onAuthStateChanged((user) => {
+      if (user && !initializing) {
+        // Usuario autenticado, usar datos temporales si existen
+        const tempData = (global as any).tempUserData;
+        const usuarioData: Usuario = tempData || {
+          id: user.uid,
+          nombre: user.displayName || 'Usuario',
+          cargo: 'Técnico', // Valor por defecto si no hay datos temporales
+          email: user.email || '',
+          rol: RolUsuario.TECNICO,
+        };
+        
+        // Limpiar datos temporales
+        delete (global as any).tempUserData;
+        
+        navigation.replace('Jefes', { usuario: usuarioData });
+      }
+      if (initializing) setInitializing(false);
+    });
+
+    return unsubscribe;
+  }, [navigation, initializing]);
+
+  const handleAuth = async () => {
+    if (!email.trim()) {
+      Alert.alert('Error', 'Por favor ingrese su email');
       return;
     }
 
+    if (!password.trim()) {
+      Alert.alert('Error', 'Por favor ingrese su contraseña');
+      return;
+    }
+
+    // Requerir cargo siempre para mantener la lógica de obtención de datos
     if (!cargo.trim()) {
       Alert.alert('Error', 'Por favor ingrese su cargo');
+      return;
+    }
+
+    if (isRegisterMode && !nombre.trim()) {
+      Alert.alert('Error', 'Por favor ingrese su nombre');
+      return;
+    }
+
+    // Validaciones
+    if (!AuthService.validarEmail(email)) {
+      Alert.alert('Error', 'Por favor ingrese un email válido');
+      return;
+    }
+
+    const passwordValidation = AuthService.validarPassword(password);
+    if (!passwordValidation.valido) {
+      Alert.alert('Error', passwordValidation.mensaje || 'Contraseña inválida');
       return;
     }
 
     setLoading(true);
 
     try {
+      let usuarioAuth: UsuarioAuth;
+
+      if (isRegisterMode) {
+        // Registrar nuevo usuario
+        usuarioAuth = await authService.registrarUsuario(email, password);
+        
+        // Actualizar perfil con nombre
+        await authService.actualizarPerfil({ displayName: nombre });
+        
+        Alert.alert(
+          'Registro exitoso',
+          'Su cuenta ha sido creada. Iniciando sesión...',
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Iniciar sesión
+        usuarioAuth = await authService.iniciarSesion(email, password);
+      }
+
+      // Crear usuario compatible con la app usando el cargo del formulario
       const usuarioData: Usuario = {
-        id: Date.now().toString(),
-        nombre: usuario.trim(),
-        cargo: cargo.trim(),
-        email: '',
+        id: usuarioAuth.uid,
+        nombre: usuarioAuth.displayName || nombre || 'Usuario',
+        cargo: cargo.trim(), // Usar el cargo ingresado en el formulario
+        email: usuarioAuth.email || '',
         rol: RolUsuario.TECNICO,
-      };      // Navegar a Jefes manteniendo el stack de navegación
-      navigation.navigate('Jefes', { usuario: usuarioData });
-    } catch (error) {
-      Alert.alert('Error', 'Error al iniciar sesión');
+      };
+
+      // Guardar temporalmente el usuario para usarlo en onAuthStateChanged
+      (global as any).tempUserData = usuarioData;
+
+      // La navegación será manejada por onAuthStateChanged
+      
+    } catch (error: any) {
+      console.error('Error de autenticación:', error);
+      Alert.alert(
+        'Error de autenticación', 
+        error.message || 'Error al procesar la solicitud'
+      );
     } finally {
       setLoading(false);
     }
   };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert('Email requerido', 'Por favor ingrese su email para enviar el enlace de recuperación');
+      return;
+    }
+
+    if (!AuthService.validarEmail(email)) {
+      Alert.alert('Error', 'Por favor ingrese un email válido');
+      return;
+    }
+
+    try {
+      await authService.enviarResetPassword(email);
+      Alert.alert(
+        'Email enviado',
+        'Se ha enviado un enlace de recuperación a su email'
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Error al enviar el email de recuperación');
+    }
+  };
+
+  // Mostrar loading mientras se inicializa
+  if (initializing) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={styles.loadingText}>Iniciando...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, styles.gradientBackground]}>
@@ -69,19 +186,23 @@ const LoginScreen = ({ navigation }: Props) => {
           </View>
           <Text style={styles.companyName}>EDHINOR</Text>
           <Text style={styles.title}>Checklist App</Text>
+          <Text style={styles.subtitle}>
+            {isRegisterMode ? 'Crear nueva cuenta' : 'Iniciar sesión'}
+          </Text>
         </View>
 
         <View style={styles.formContainer}>
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
-              <Text style={styles.emojiIcon}>👤</Text>
+              <Text style={styles.emojiIcon}>�</Text>
               <TextInput
                 style={styles.input}
-                value={usuario}
-                onChangeText={setUsuario}
-                placeholder="Ingrese su nombre"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Email"
                 placeholderTextColor="#999"
-                autoCapitalize="words"
+                keyboardType="email-address"
+                autoCapitalize="none"
                 autoCorrect={false}
               />
             </View>
@@ -89,12 +210,28 @@ const LoginScreen = ({ navigation }: Props) => {
 
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
-              <Text style={styles.emojiIcon}>💼</Text>
+              <Text style={styles.emojiIcon}>🔒</Text>
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Contraseña"
+                placeholderTextColor="#999"
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <View style={styles.inputWrapper}>
+              <Text style={styles.emojiIcon}>�</Text>
               <TextInput
                 style={styles.input}
                 value={cargo}
                 onChangeText={setCargo}
-                placeholder="Ingrese su cargo"
+                placeholder="Cargo"
                 placeholderTextColor="#999"
                 autoCapitalize="words"
                 autoCorrect={false}
@@ -102,26 +239,69 @@ const LoginScreen = ({ navigation }: Props) => {
             </View>
           </View>
 
+          {isRegisterMode && (
+            <View style={styles.inputContainer}>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.emojiIcon}>�</Text>
+                <TextInput
+                  style={styles.input}
+                  value={nombre}
+                  onChangeText={setNombre}
+                  placeholder="Nombre completo"
+                  placeholderTextColor="#999"
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
+          )}
+
           <TouchableOpacity
             style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-            onPress={handleLogin}
+            onPress={handleAuth}
             disabled={loading}
           >
             <View style={styles.loginButtonGradient}>
               {loading ? (
-                <Text style={styles.buttonEmojiIcon}>⏳</Text>
+                <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.buttonEmojiIcon}>🔐</Text>
+                <Text style={styles.buttonEmojiIcon}>
+                  {isRegisterMode ? '�' : '�🔐'}
+                </Text>
               )}
               <Text style={styles.loginButtonText}>
-                {loading ? 'Iniciando...' : 'Iniciar Sesión'}
+                {loading 
+                  ? (isRegisterMode ? 'Registrando...' : 'Iniciando...') 
+                  : (isRegisterMode ? 'Registrarse' : 'Iniciar Sesión')
+                }
               </Text>
             </View>
+          </TouchableOpacity>
+
+          {!isRegisterMode && (
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={handleForgotPassword}
+            >
+              <Text style={styles.forgotPasswordText}>¿Olvidó su contraseña?</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.toggleModeButton}
+            onPress={() => setIsRegisterMode(!isRegisterMode)}
+          >
+            <Text style={styles.toggleModeText}>
+              {isRegisterMode 
+                ? '¿Ya tiene cuenta? Iniciar sesión' 
+                : '¿No tiene cuenta? Registrarse'
+              }
+            </Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>Checklist App v1.0</Text>
+          <Text style={styles.footerText}>Checklist App v2.0 con Firebase Auth</Text>
         </View>
       </ScrollView>
     </View>
@@ -285,7 +465,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 4,
     opacity: 0.7,
-  },  emojiIcon: {
+  },
+  emojiIcon: {
     fontSize: 20,
     color: '#4a6cf7',
     paddingLeft: 12,
@@ -295,6 +476,37 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#4a6cf7',
     marginRight: 8,
+  },
+  // Nuevos estilos para Firebase Auth
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 16,
+    marginTop: 10,
+    fontWeight: '600',
+  },
+  forgotPasswordButton: {
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  forgotPasswordText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+    opacity: 0.8,
+  },
+  toggleModeButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  toggleModeText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    opacity: 0.9,
   },
 });
 

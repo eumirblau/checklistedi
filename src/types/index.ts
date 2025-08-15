@@ -1,3 +1,16 @@
+// Tipos de autenticación Firebase
+export type UsuarioAuth = {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  emailVerified: boolean;
+};
+
+export type ErrorAutenticacion = {
+  code: string;
+  message: string;
+};
+
 // Tipos de navegación
 export type RootStackParamList = {
   Login: undefined;
@@ -13,12 +26,23 @@ export type RootStackParamList = {
     jefeNombre: string;
     usuario: Usuario;
   };
-  Checklist: { 
+  ChecklistScreen: { 
     instalacionId: string;
     instalacionNombre: string;
     spreadsheetId: string;
     usuario: Usuario;
     obraNombre: string;
+    jefeNombre: string;
+    obraId: string;
+  };
+  GrupoChecklistScreen: {
+    grupo: string;
+    items: any[];
+    spreadsheetId: string;
+    instalacionNombre: string;
+    usuario: Usuario;
+    obraNombre: string;
+    jefeNombre: string;
   };
 };
 

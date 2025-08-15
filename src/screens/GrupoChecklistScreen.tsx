@@ -277,7 +277,12 @@ function GrupoChecklistScreen({ route, navigation }) {
       const year = String(now.getFullYear()).slice(-2);
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
-      const timestamp = `${day}/${month}/${year} ${hours}:${minutes} - ${usuario?.nombre || usuario || 'Usuario'}`;
+      
+      // Incluir nombre y cargo del usuario en el timestamp
+      const userName = usuario?.nombre || usuario || 'Usuario';
+      const userCargo = usuario?.cargo || '';
+      const userInfo = userCargo ? `${userName} (${userCargo})` : userName;
+      const timestamp = `${day}/${month}/${year} ${hours}:${minutes} - ${userInfo}`;
       
       const updatedObservations = selectedItem.observaciones 
         ? `${selectedItem.observaciones}\n[${timestamp}] ${newObservation.trim()}`
@@ -303,13 +308,18 @@ function GrupoChecklistScreen({ route, navigation }) {
         if (String(i.rowIndex) === String(itemId)) {
           const newCompletado = !i.completado;
           const currentDate = new Date().toLocaleDateString('es-ES');
+          
+          // Incluir nombre y cargo del usuario en el campo usuarioCompletado
           const userName = usuario?.nombre || usuario || 'Usuario';
+          const userCargo = usuario?.cargo || '';
+          const userInfo = userCargo ? `${userName} (${userCargo})` : userName;
+          
           console.log(`✅ [TOGGLE] Item ${itemId}: ${i.completado ? 'DESMARCADO' : 'MARCADO'}`);
           return {
             ...i,
             completado: newCompletado,
             fechapp: newCompletado ? currentDate : '',
-            usuarioCompletado: newCompletado ? userName : ''
+            usuarioCompletado: newCompletado ? userInfo : ''
           };
         }
         return i;
