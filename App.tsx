@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import LoginScreen from './src/screens/LoginScreen';
 
 export default function App() {
   console.log('App iniciando...');
   const [currentScreen, setCurrentScreen] = useState('menu');
   const [contador, setContador] = useState(0);
+  const [userData, setUserData] = useState(null);
   
   const mostrarAlerta = () => {
     Alert.alert('¡Funciona!', `Has presionado ${contador + 1} veces`);
@@ -24,18 +26,17 @@ export default function App() {
     const currentScreenData = screens.find(s => s.id === currentScreen);
     
     if (currentScreen === 'login') {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.text}>👤 Login Screen</Text>
-          <Text style={styles.subtitle}>Autenticación de usuario</Text>
-          <TouchableOpacity style={styles.button} onPress={() => setCurrentScreen('jefes')}>
-            <Text style={styles.buttonText}>Continuar → Jefes</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('menu')}>
-            <Text style={styles.buttonText}>🏠 Menú</Text>
-          </TouchableOpacity>
-        </View>
-      );
+      // Crear un mock de navigation para LoginScreen
+      const mockNavigation = {
+        navigate: (screen: string, params?: any) => {
+          if (screen === 'Jefes') {
+            setUserData(params?.usuario);
+            setCurrentScreen('jefes');
+          }
+        }
+      };
+      
+      return <LoginScreen navigation={mockNavigation} />;
     }
     
     if (currentScreen === 'jefes') {
