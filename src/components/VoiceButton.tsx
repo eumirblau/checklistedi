@@ -186,16 +186,38 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
   };
 
   const handlePress = () => {
-    if (isDevelopment) {
-      // En desarrollo, siempre abrir el modal de simulación
+    // CAMBIO: Siempre verificar si el reconocimiento de voz está disponible
+    if (isDevelopment || !isInitialized) {
+      // En desarrollo O si la voz no está disponible, usar modal de simulación
       showVoiceSimulation();
     } else {
-      // En producción, usar reconocimiento de voz real
+      // En producción Y con voz disponible, usar reconocimiento de voz real
       if (isListening) {
         stopListening();
       } else {
-        startListening();
+        // Pero ofrecer alternativa si falla
+        startListeningWithFallback();
       }
+    }
+  };
+
+  const startListeningWithFallback = async () => {
+    try {
+      await startListening();
+    } catch (error) {
+      console.warn('Voice recognition failed, offering text alternative:', error);
+      Alert.alert(
+        'Reconocimiento de voz no disponible',
+        'No se pudo iniciar el reconocimiento de voz en este momento. ¿Te gustaría escribir tu observación manualmente?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Escribir observación', 
+            style: 'default',
+            onPress: () => showVoiceSimulation()
+          }
+        ]
+      );
     }
   };
 
@@ -302,21 +324,11 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
     );
   }
 
-  if (!isInitialized) {
-    // Mostrar botón informativo cuando no esté disponible
-    return (
-      <TouchableOpacity
-        style={[styles.voiceButton, styles.unavailable, style]}
-        onPress={handleUnavailablePress}
-        activeOpacity={0.7}
-      >
-        <View style={styles.buttonContent}>
-          <Text style={styles.micIcon}>🎤</Text>
-          <Text style={[styles.buttonText, { fontSize: 10 }]}>Alt</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }
+  // CAMBIO: Siempre mostrar el botón como disponible con fallback a texto
+  // En lugar de verificar isInitialized, siempre permitir interacción
+  const isVoiceAvailable = isInitialized && !isDevelopment;
+  const buttonText = isVoiceAvailable ? 'Voz' : 'Obs';
+  const buttonIcon = isVoiceAvailable ? '🎤' : '✏️';
 
   return (
     <>
@@ -325,6 +337,7 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
           styles.voiceButton,
           isListening && styles.listening,
           disabled && styles.disabled,
+          !isVoiceAvailable && styles.textMode,
           style,
         ]}
         onPress={handlePress}
@@ -339,14 +352,14 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
             </>
           ) : (
             <>
-              <Text style={styles.micIcon}>🎤</Text>
-              <Text style={styles.buttonText}>Hablar</Text>
+              <Text style={styles.micIcon}>{buttonIcon}</Text>
+              <Text style={styles.buttonText}>{buttonText}</Text>
             </>
           )}
         </View>
       </TouchableOpacity>
 
-      {/* Modal de simulación de voz */}
+      {/* Modal de observaciones - siempre disponible como alternativa */}
       <Modal
         visible={showSimulationModal}
         transparent={true}
@@ -355,16 +368,21 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Simular entrada de voz</Text>
+            <Text style={styles.modalTitle}>
+              {isVoiceAvailable ? '💬 Entrada de texto alternativa' : '✏️ Agregar observación'}
+            </Text>
             <Text style={styles.modalSubtitle}>
-              Escribe el texto que quieres agregar (simula lo que dirías por voz):
+              {isVoiceAvailable ? 
+                'Escribe tu observación manualmente como alternativa a la voz:' : 
+                'Escribe tu observación:'
+              }
             </Text>
             
             <TextInput
               style={styles.modalInput}
               value={simulationText}
               onChangeText={setSimulationText}
-              placeholder="Ej: Revisado y conforme..."
+              placeholder="Ej: Todo revisado y conforme, sin observaciones..."
               multiline={true}
               numberOfLines={3}
               autoFocus={true}
@@ -379,11 +397,18 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
               </TouchableOpacity>
               
               <TouchableOpacity
-                style={[styles.modalButton, styles.submitButton]}
+                style={[
+                  styles.modalButton, 
+                  styles.submitButton,
+                  !simulationText.trim() && styles.submitButtonDisabled
+                ]}
                 onPress={handleSimulationSubmit}
                 disabled={!simulationText.trim()}
               >
-                <Text style={styles.submitButtonText}>Agregar</Text>
+                <Text style={[
+                  styles.submitButtonText,
+                  !simulationText.trim() && { opacity: 0.5 }
+                ]}>Agregar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -410,6 +435,9 @@ const styles = StyleSheet.create({
   disabled: {
     backgroundColor: '#ccc',
     opacity: 0.6,
+  },
+  textMode: {
+    backgroundColor: '#FF9800', // Color naranja para modo texto
   },
   unavailable: {
     backgroundColor: '#ff9800',
