@@ -29,7 +29,8 @@
         "backgroundColor": "#FFFFFF"
       },
       "package": "com.eumirblau.checklistapp",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "jsEngine": "hermes"
     },
     "updates": {
       "fallbackToCacheTimeout": 0

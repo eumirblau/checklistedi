@@ -1,5 +1,31 @@
-import { getApp, getApps } from '@react-native-firebase/app';
-import auth, { FirebaseAuthTypes, getAuth } from '@react-native-firebase/auth';
+import { initializeApp } from 'firebase/app';
+import {
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  User
+} from 'firebase/auth';
+
+// Configuración de Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDREB_RGYvMCeNHL7t3CWfLo7402dsOOiE",
+  authDomain: "checklistedhinor.firebaseapp.com",
+  projectId: "checklistedhinor",
+  storageBucket: "checklistedhinor.firebasestorage.app",
+  messagingSenderId: "972633539581",
+  appId: "1:972633539581:android:1971e7f9cd4930c807cf94",
+};
+
+// Inicializar Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+console.log('🔥 Firebase Auth inicializado para Expo Go');
 
 export type UsuarioAuth = {
   uid: string;
@@ -18,9 +44,9 @@ class AuthService {
    * Verifica que Firebase esté inicializado
    */
   private ensureFirebaseInitialized() {
-    const apps = getApps();
-    if (apps.length === 0) {
-      throw new Error('Firebase no está inicializado. Verifica google-services.json');
+    // Firebase Web SDK no necesita verificación de apps
+    if (!auth) {
+      throw new Error('Firebase no está inicializado. Verifica la configuración');
     }
   }
 
@@ -28,13 +54,13 @@ class AuthService {
    * Obtiene la instancia de auth
    */
   private getAuthInstance() {
-    return getAuth(getApp());
+    return auth;
   }
 
   /**
    * Obtiene el usuario actualmente autenticado
    */
-  getCurrentUser(): FirebaseAuthTypes.User | null {
+  getCurrentUser(): User | null {
     try {
       this.ensureFirebaseInitialized();
       return this.getAuthInstance().currentUser;
@@ -51,7 +77,9 @@ class AuthService {
     try {
       this.ensureFirebaseInitialized();
       const authInstance = this.getAuthInstance();
-      const userCredential = await authInstance.createUserWithEmailAndPassword(email, password);
+      
+      // Usar la API modular v22
+      const userCredential = await createUserWithEmailAndPassword(authInstance, email, password);
       const user = userCredential.user;
       
       return {
@@ -72,7 +100,9 @@ class AuthService {
     try {
       this.ensureFirebaseInitialized();
       const authInstance = this.getAuthInstance();
-      const userCredential = await authInstance.signInWithEmailAndPassword(email, password);
+      
+      // Usar la API modular v22
+      const userCredential = await signInWithEmailAndPassword(authInstance, email, password);
       const user = userCredential.user;
       
       return {
@@ -91,7 +121,11 @@ class AuthService {
    */
   async cerrarSesion(): Promise<void> {
     try {
-      await auth().signOut();
+      this.ensureFirebaseInitialized();
+      const authInstance = this.getAuthInstance();
+      
+      // Usar la API modular v22
+      await signOut(authInstance);
     } catch (error: any) {
       throw this.handleAuthError(error);
     }
@@ -102,7 +136,11 @@ class AuthService {
    */
   async enviarResetPassword(email: string): Promise<void> {
     try {
-      await auth().sendPasswordResetEmail(email);
+      this.ensureFirebaseInitialized();
+      const authInstance = this.getAuthInstance();
+      
+      // Usar la API modular v22
+      await sendPasswordResetEmail(authInstance, email);
     } catch (error: any) {
       throw this.handleAuthError(error);
     }
@@ -113,9 +151,12 @@ class AuthService {
    */
   async enviarVerificacionEmail(): Promise<void> {
     try {
-      const user = auth().currentUser;
+      this.ensureFirebaseInitialized();
+      const authInstance = this.getAuthInstance();
+      const user = authInstance.currentUser;
+      
       if (user && !user.emailVerified) {
-        await user.sendEmailVerification();
+        await sendEmailVerification(user);
       }
     } catch (error: any) {
       throw this.handleAuthError(error);
@@ -126,7 +167,10 @@ class AuthService {
    * Escucha cambios en el estado de autenticación
    */
   onAuthStateChanged(callback: (user: UsuarioAuth | null) => void): () => void {
-    return auth().onAuthStateChanged((user) => {
+    this.ensureFirebaseInitialized();
+    const authInstance = this.getAuthInstance();
+    
+    return onAuthStateChanged(authInstance, (user) => {
       if (user) {
         const usuario: UsuarioAuth = {
           uid: user.uid,
@@ -146,9 +190,11 @@ class AuthService {
    */
   async actualizarPerfil(updates: { displayName?: string; photoURL?: string }): Promise<void> {
     try {
-      const user = auth().currentUser;
+      this.ensureFirebaseInitialized();
+      const authInstance = this.getAuthInstance();
+      const user = authInstance.currentUser;
       if (user) {
-        await user.updateProfile(updates);
+        await updateProfile(user, updates);
       }
     } catch (error: any) {
       throw this.handleAuthError(error);

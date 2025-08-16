@@ -56,7 +56,7 @@ const AppNavigator = () => {
           options={{ headerShown: false }}
         />
         <Stack.Screen 
-          name="Checklist" 
+          name="ChecklistScreen" 
           component={ChecklistScreen}
           options={{ headerShown: false }}
         />

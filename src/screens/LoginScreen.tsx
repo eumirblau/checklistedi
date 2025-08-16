@@ -11,9 +11,20 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+// Usando AuthService para compatibilidad con Expo Go
 import AuthService from '../services/AuthService';
-// import AuthServiceMock from '../services/AuthServiceMock';
 import { RolUsuario, Usuario } from '../types';
+
+// Debug helper para Firebase Web
+const debugAuth = () => {
+  try {
+    console.log('🔥 Firebase Web Auth está disponible');
+    return true;
+  } catch (error) {
+    console.error('❌ Error con Firebase Web Auth:', error);
+    return false;
+  }
+};
 
 const authService = new AuthService();
 
@@ -32,6 +43,7 @@ const LoginScreen = ({ navigation }: Props) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Verificar usuario actual
         const currentUser = authService.getCurrentUser();
         if (currentUser) {
           const usuarioData: Usuario = {
@@ -41,11 +53,12 @@ const LoginScreen = ({ navigation }: Props) => {
             cargo: 'SUPERVISOR',
             rol: RolUsuario.SUPERVISOR
           };
+          console.log('🔥 Usuario restaurado desde persistencia:', usuarioData.email);
           // Comentado temporalmente para testing
           // navigation.navigate('Jefes', { usuario: usuarioData });
         }
       } catch (error) {
-        console.log('Usuario no autenticado');
+        console.log('Usuario no autenticado o error en persistencia:', error);
       } finally {
         setInitializing(false);
       }
@@ -55,6 +68,9 @@ const LoginScreen = ({ navigation }: Props) => {
   }, [navigation]);
 
   const handleAuth = async () => {
+    console.log('🔑 Iniciando proceso de autenticación...');
+    console.log('🔑 Firebase status:', debugAuth());
+    
     if (!email.trim() || !password.trim()) {
       Alert.alert('Error', 'Por favor completa email y contraseña');
       return;
@@ -80,7 +96,9 @@ const LoginScreen = ({ navigation }: Props) => {
     setLoading(true);
     
     try {
+      console.log('🔑 Intentando login con:', email);
       const user = await authService.iniciarSesion(email.trim(), password.trim());
+      console.log('🔑 Resultado del login:', !!user);
       
       if (user) {
         // Determinar rol basado en el cargo ingresado
@@ -101,10 +119,12 @@ const LoginScreen = ({ navigation }: Props) => {
         };
 
         console.log('🔥 FIREBASE AUTH - Usuario:', usuarioCompleto);
+        console.log('🧭 Navegando a Jefes...', typeof navigation.navigate);
         navigation.navigate('Jefes', { usuario: usuarioCompleto });
+        console.log('🧭 Navegación completada');
       }
     } catch (error: any) {
-      console.error('Error con Firebase:', error);
+      console.error('❌ Error con Firebase:', error);
       Alert.alert('Error', error.message || 'No se pudo conectar con Firebase');
     } finally {
       setLoading(false);
@@ -174,8 +194,12 @@ const LoginScreen = ({ navigation }: Props) => {
 
           <TouchableOpacity
             style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-            onPress={handleAuth}
+            onPress={() => {
+              console.log('🔥 BOTÓN TOCADO - handleAuth iniciando...');
+              handleAuth();
+            }}
             disabled={loading}
+            activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator color="white" />

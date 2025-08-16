@@ -45,6 +45,8 @@ class ApiService {
       '15EYdKNe_GqHi918p8CVh3-RjCc-zEy8jrdWNdoX61A': ['Instalación Hidráulica', 'Sistema de Seguridad', 'Iluminación LED'],
       '17OfTNY0OBiId27vCXqIa7p8nhmuvvk9Mh9C_WLGcnhA': ['Sistema de Aire Acondicionado', 'Red Eléctrica', 'Instalación de Gas'],
       '1ICEl45f3I59Iz4JDTRHD17huoiyISBxCO9eRXWcPdyU': ['Instalación de Fontanería', 'Sistema de Alarmas', 'Climatización Central'],
+      // Centro de Mayores Los Almendros
+      '15UNDktnDzB_8lHkxx4QjKYRfABX4_M2wjCXx61Wh474': ['ACS y SOLAR TÉRMICA', 'Instalación Eléctrica', 'Sistema de Climatización', 'Red de Datos'],
     }
   };
   // ✅ ARQUITECTURA ESCALABLE: Obtener ID real de spreadsheet dinámicamente
@@ -740,6 +742,128 @@ class ApiService {
       const obrasOffline = this.datosOffline.obras[jefeNombre] || [];
       console.log('📱 [ApiService.getObrasPorJefe] Retornando', obrasOffline.length, 'obras offline para', jefeNombre);
       return obrasOffline;
+    }
+  }
+
+  // ✅ Nueva función para actualizar la URL de foto en la columna S (19) (desde commit 9d06a9f)
+  // Función para actualizar URL de foto usando endpoint guardarChecks existente
+  async updatePhotoUrl(
+    obraIdOrName: string,
+    instalacionNombre: string,
+    itemId: string,
+    photoUrl: string
+  ): Promise<any> {
+    console.log(`[ApiService.updatePhotoUrl] Called with obraIdOrName: ${obraIdOrName}, instalacion: ${instalacionNombre}, itemId: ${itemId}`);   
+    console.log(`[ApiService.updatePhotoUrl] Photo URL to update: ${photoUrl}`);
+
+    // Extract the actual sheet name from the instalacionNombre if it's a composite ID
+    let actualSheetName = instalacionNombre;
+    if (instalacionNombre.includes('-') && instalacionNombre.length > 40) {
+      const parts = instalacionNombre.split('-');
+      if (parts.length >= 3) {
+        actualSheetName = parts.slice(1, -1).join('-');
+        console.log(`[ApiService.updatePhotoUrl] Extracted sheet name '${actualSheetName}' from composite ID '${instalacionNombre}'`);
+      }
+    }
+
+    // Map to real spreadsheet ID
+    const spreadsheetId = await this.mapToRealSpreadsheetId(obraIdOrName);
+    console.log(`[ApiService.updatePhotoUrl] Mapped obraIdOrName '${obraIdOrName}' to spreadsheetId: ${spreadsheetId}`);
+
+    // Extraer rowIndex del itemId - manejar diferentes formatos
+    let rowIndex = null;
+
+    console.log(`[ApiService.updatePhotoUrl] Analyzing itemId: "${itemId}"`);
+
+    // Caso 1: itemId es solo un número (ej: "11")
+    if (/^\d+$/.test(itemId)) {
+      rowIndex = parseInt(itemId);
+      console.log(`[ApiService.updatePhotoUrl] ItemId is numeric, using as rowIndex: ${rowIndex}`);
+    } 
+    // Caso 2: itemId contiene guiones y puede tener rowIndex (ej: "15UNDktnDzB_8lHkxx4QjKYRfABX4_M2wjCXx61Wh474-9-Aérea-ó-enterrada")
+    else if (itemId.includes('-')) {
+      const parts = itemId.split('-');
+      // Buscar el primer número válido en las partes
+      for (let i = 0; i < parts.length; i++) {
+        const potentialIndex = parseInt(parts[i]);
+        if (!isNaN(potentialIndex) && potentialIndex > 0) {
+          rowIndex = potentialIndex;
+          break;
+        }
+      }
+      console.log(`[ApiService.updatePhotoUrl] Extracting rowIndex from itemId with dashes: ${rowIndex}`);
+    }
+    // Caso 3: itemId es solo texto (ej: "Tensión de alimentación") - no podemos procesar
+    else {
+      console.warn(`[ApiService.updatePhotoUrl] ItemId "${itemId}" appears to be just text without rowIndex`);
+      // Para estos casos, vamos a buscar en los datos del checklist
+      // Esto requiere que el caller proporcione más información
+      throw new Error(`ItemId "${itemId}" no contiene información de rowIndex. Use el formato completo que incluya el rowIndex.`);
+    }
+    
+    if (!rowIndex || isNaN(rowIndex) || rowIndex <= 0) {
+      throw new Error(`No se pudo extraer rowIndex válido del itemId: ${itemId}. Formato esperado: número o string con rowIndex incluido.`);
+    }
+
+    console.log(`[ApiService.updatePhotoUrl] Final rowIndex: ${rowIndex} from itemId: ${itemId}`);
+
+    try {
+      // Crear item especial para actualización de foto usando guardarChecks
+      const photoUpdateItem = {
+        id: itemId,
+        rowIndex: rowIndex,
+        photoUrl: photoUrl,
+        // Flag especial para indicar que es actualización de foto únicamente
+        isPhotoUpdate: true
+      };
+
+      console.log(`[ApiService.updatePhotoUrl] Sending photo update via guardarChecks:`, photoUpdateItem);
+
+      const response = await fetch(`${BASE_URL}/guardarChecks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          spreadsheetId,
+          pestana: actualSheetName,
+          items: [photoUpdateItem],
+          usuario: 'Sistema_Foto',
+          cargo: 'Automatico',
+          // ✅ Parámetros requeridos por el backend para detectar actualización de foto
+          isPhotoUpdate: true,
+          updatePhotoOnly: true,
+          photoUrl: photoUrl,     // ✅ AÑADIDO: PhotoUrl en nivel raíz
+          itemId: rowIndex        // ✅ AÑADIDO: ItemId como rowIndex para el backend
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`[ApiService.updatePhotoUrl] API error: ${response.status} - ${errorBody}`);
+        console.error(`[ApiService.updatePhotoUrl] Failed request details:`, {
+          spreadsheetId,
+          pestana: actualSheetName,
+          rowIndex,
+          itemId
+        });
+        
+        // Si es un error de "entity not found", intentemos una estrategia alternativa
+        if (errorBody.includes('Requested entity was not found')) {
+          console.warn(`[ApiService.updatePhotoUrl] Entity not found, this might be expected for some items. Continuing...`);
+          return { success: false, error: 'Entity not found', skipError: true };
+        }
+        
+        throw new Error(`Error updating photo URL: ${response.statusText} - ${errorBody}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [ApiService.updatePhotoUrl] Photo URL updated successfully via guardarChecks:', result);
+      return result;
+
+    } catch (error) {
+      console.error('❌ [ApiService.updatePhotoUrl] Error updating photo URL via guardarChecks:', error);
+      throw error;
     }
   }
 }
