@@ -33,9 +33,10 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
   const [showSimulationModal, setShowSimulationModal] = useState(false);
   const [simulationText, setSimulationText] = useState('');
   const [voiceNativeUnavailable, setVoiceNativeUnavailable] = useState(false);
+  const [forceVoiceMode, setForceVoiceMode] = useState(false);
   
   // Solo usar modal de texto en emuladores/simuladores o si Voice no está disponible
-  const isEmulator = !Voice || voiceNativeUnavailable;
+  const isEmulator = !Voice || (voiceNativeUnavailable && !forceVoiceMode);
 
   useEffect(() => {
     // Siempre intentar configurar Voice, tanto en desarrollo como en producción
@@ -305,8 +306,24 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
   const handlePress = () => {
     // CAMBIO: Verificar si el reconocimiento de voz está disponible
     if (isEmulator || !isInitialized) {
-      // Si Voice no está disponible o no se inicializó, usar modal de simulación
-      showVoiceSimulation();
+      // Si Voice no está disponible, mostrar opciones
+      Alert.alert(
+        'Opciones de entrada',
+        'Selecciona cómo quieres agregar la observación:',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Escribir texto', 
+            style: 'default',
+            onPress: () => showVoiceSimulation()
+          },
+          { 
+            text: 'Forzar micrófono', 
+            style: 'default',
+            onPress: () => forceVoiceRecognition()
+          }
+        ]
+      );
     } else {
       // Si Voice está disponible, usar reconocimiento de voz real
       if (isListening) {
@@ -315,6 +332,31 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
         // Pero ofrecer alternativa si falla
         startListeningWithFallback();
       }
+    }
+  };
+
+  const forceVoiceRecognition = async () => {
+    console.log('🔥 FORZANDO reconocimiento de voz - ignorando verificaciones');
+    setForceVoiceMode(true);
+    setVoiceNativeUnavailable(false);
+    setIsInitialized(true);
+    
+    // Configurar eventos forzadamente
+    if (Voice) {
+      Voice.onSpeechStart = onSpeechStart;
+      Voice.onSpeechRecognized = onSpeechRecognized;
+      Voice.onSpeechEnd = onSpeechEnd;
+      Voice.onSpeechError = onSpeechError;
+      Voice.onSpeechResults = onSpeechResults;
+    }
+    
+    // Intentar directamente
+    try {
+      await startListening();
+    } catch (error) {
+      console.error('🔥 Modo forzado también falló:', error);
+      Alert.alert('Error', 'El reconocimiento de voz no está disponible en este dispositivo.');
+      setForceVoiceMode(false);
     }
   };
 
