@@ -92,5 +92,9 @@ src/utils/NavigationUtils.ts
 services/ApiService.ts
 debug.js
 
+# Ignorar archivos fantasma de TypeScript
+**/*AuthServiceWeb*
+**/*AuthServiceWebSimple*
+
 # AuthServiceNative se usa solo en builds EAS
 # src/services/AuthServiceNative.ts
