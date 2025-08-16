@@ -25,6 +25,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+// NOTA: El warning sobre AsyncStorage en Expo Go es normal y no afecta funcionalidad
+// En builds nativos (EAS), la persistencia funciona automáticamente con React Native Firebase
 console.log('🔥 Firebase Auth inicializado para Expo Go');
 
 export type UsuarioAuth = {

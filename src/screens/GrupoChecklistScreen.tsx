@@ -10,6 +10,9 @@ function GrupoChecklistScreen({ route, navigation }) {
   const params = route?.params || {};
   const grupo = params.grupo || 'Sin grupo';
   
+  // Extraer parámetros necesarios PRIMERO
+  const { instalacionNombre, usuario, jefeNombre } = params;
+  
   // Extraer spreadsheetId y obraNombre antes del efecto
   const spreadsheetId = params.spreadsheetId;
   const obraNombre = params.obraNombre;
@@ -63,9 +66,6 @@ function GrupoChecklistScreen({ route, navigation }) {
   const [saving, setSaving] = React.useState(false);
   const [justSaved, setJustSaved] = React.useState(false); // Prevenir recargas automáticas después del guardado
   const [savedDataCache, setSavedDataCache] = React.useState(null); // Cache de datos guardados exitosamente
-
-  // Extraer parámetros necesarios para guardar
-  const { instalacionNombre, usuario, jefeNombre } = params;
 
   // Clave única para AsyncStorage basada en la ubicación del checklist
   const storageKey = `checklist_${spreadsheetId}_${instalacionNombre}_${grupo}`;

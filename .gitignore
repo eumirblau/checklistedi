@@ -91,3 +91,6 @@ src/services/AuthServiceWebSimple.ts
 src/utils/NavigationUtils.ts
 services/ApiService.ts
 debug.js
+
+# AuthServiceNative se usa solo en builds EAS
+# src/services/AuthServiceNative.ts
