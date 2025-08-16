@@ -84,3 +84,10 @@ firebaseConfig.js
 
 app-example
 functions/service-account.json
+
+# Archivos específicos que no deben volver a aparecer
+src/services/AuthServiceWeb.ts
+src/services/AuthServiceWebSimple.ts
+src/utils/NavigationUtils.ts
+services/ApiService.ts
+debug.js

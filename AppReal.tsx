@@ -13,7 +13,7 @@ const Stack = createStackNavigator();
 export default function AppReal() {
   return (
     <NavigationContainer>
-      <Stack.Navigator 
+      <Stack.Navigator
         initialRouteName="Login"
         screenOptions={{
           headerStyle: {
@@ -25,50 +25,35 @@ export default function AppReal() {
           },
         }}
       >
-        <Stack.Screen 
-          name="Login" 
-          component={LoginScreen} 
-          options={{ headerShown: false }}
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ title: 'Inicio de Sesión' }}
         />
-        <Stack.Screen 
-          name="Jefes" 
-          component={JefesScreen} 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: false
-          }}
+        <Stack.Screen
+          name="Jefes"
+          component={JefesScreen}
+          options={{ title: 'Seleccionar Jefe' }}
         />
-        <Stack.Screen 
-          name="Obras" 
-          component={ObrasScreen} 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: false
-          }}
+        <Stack.Screen
+          name="Obras"
+          component={ObrasScreen}
+          options={{ title: 'Seleccionar Obra' }}
         />
-        <Stack.Screen 
-          name="Instalaciones" 
-          component={InstalacionesScreen} 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: false
-          }}
+        <Stack.Screen
+          name="Instalaciones"
+          component={InstalacionesScreen}
+          options={{ title: 'Seleccionar Instalación' }}
         />
-        <Stack.Screen 
-          name="ChecklistScreen" 
-          component={ChecklistScreen} 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: false
-          }}
+        <Stack.Screen
+          name="ChecklistScreen"
+          component={ChecklistScreen}
+          options={{ title: 'Checklist' }}
         />
-        <Stack.Screen 
-          name="GrupoChecklistScreen" 
-          component={GrupoChecklistScreen} 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: false
-          }}
+        <Stack.Screen
+          name="GrupoChecklistScreen"
+          component={GrupoChecklistScreen}
+          options={{ title: 'Grupo Checklist' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

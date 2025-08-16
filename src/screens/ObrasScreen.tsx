@@ -48,8 +48,19 @@ const ObrasScreen = ({ navigation, route }: Props) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const handleGoBack = () => {
-    // Volver directamente a JefeDeGrupo
-    navigation.navigate('Jefes', { usuario });
+    console.log('🔄 BOTÓN VOLVER PRESIONADO - ObrasScreen');
+    console.log('🔄 Navigation object:', !!navigation);
+    console.log('🔄 Usuario:', usuario);
+    try {
+      // USAR RESET EN LUGAR DE NAVIGATE
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Jefes', params: { usuario } }],
+      });
+      console.log('✅ Reset de navegación ejecutado');
+    } catch (error) {
+      console.error('❌ Error en navegación:', error);
+    }
   };
 
   const loadObras = useCallback(async () => {
@@ -184,9 +195,6 @@ const ObrasScreen = ({ navigation, route }: Props) => {
       <StatusBar barStyle="light-content" backgroundColor="#4a6cf7" />
       
       <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <Text style={styles.backButtonText}>← Volver</Text>
-        </TouchableOpacity>
         <Text style={styles.welcomeText}>Jefe: {safeText(jefeNombre)}</Text>
         <Text style={styles.title}>🏗️ Obras Asignadas</Text>
         <Text style={styles.subtitle}>Selecciona una obra para continuar</Text>

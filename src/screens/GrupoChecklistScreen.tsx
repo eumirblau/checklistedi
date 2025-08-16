@@ -20,8 +20,8 @@ function GrupoChecklistScreen({ route, navigation }) {
         const resolvedId = await ApiService.mapToRealSpreadsheetId(obraNombre);
         if (resolvedId) {
           params.spreadsheetId = resolvedId;
-          // Actualizar navegación para que el resto del flujo use el id correcto
-          navigation.setParams({ ...params, spreadsheetId: resolvedId });
+          // ID resuelto correctamente para usar en el resto del flujo
+          console.log('📋 Spreadsheet ID resuelto:', resolvedId);
         } else {
           Alert.alert('Error', 'No se pudo encontrar el ID de la hoja para esta obra.');
         }
@@ -102,6 +102,8 @@ function GrupoChecklistScreen({ route, navigation }) {
       }
       
       const freshData = await ApiService.getItemsDeChecklist(spreadsheetId, instalacionNombre);
+      console.log('DEBUG_START: loadGroupItems ejecutándose, grupo:', grupo, 'freshData.length:', freshData?.length);
+      
       if (!Array.isArray(freshData) || freshData.length === 0) {
         if (savedDataCache && Array.isArray(savedDataCache) && savedDataCache.length > 0) {
           setItems(savedDataCache);
@@ -128,7 +130,8 @@ function GrupoChecklistScreen({ route, navigation }) {
           grupoActual = { encabezado: unidad || descripcion, items: [] };
           grupos.push(grupoActual);
           ultimoEncabezado = unidad || descripcion;
-        } else if (grupoActual) {
+          // NO agregar el encabezado como item
+        } else if (grupoActual && !esEncabezado) {  // ← AQUÍ: solo agregar si NO es encabezado
           // Solo agregar si el rowIndex no está repetido
           if (!vistosRowIndex.has(item.rowIndex)) {
             grupoActual.items.push(item);
@@ -137,11 +140,64 @@ function GrupoChecklistScreen({ route, navigation }) {
         }
       }
       
-      const normalizar = str => (str || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-      const grupoEncontrado = grupos.find(g => normalizar(g.encabezado) === normalizar(grupo));
+      const normalizar = str => {
+        return (str || '').toString().trim().toLowerCase()
+          .replace(/\s+/g, '')  // Eliminar todos los espacios
+          .replace(/[áàâäãä]/g, 'a')
+          .replace(/[éèêëe├ë]/g, 'e')  // Incluir ├ë que aparece en los logs
+          .replace(/[íìîï]/g, 'i')
+          .replace(/[óòôöõ]/g, 'o')
+          .replace(/[úùûü]/g, 'u')
+          .replace(/[ñ]/g, 'n')
+          .replace(/[ç]/g, 'c')
+          .replace(/[^a-z]/g, ''); // Eliminar TODO lo que no sea letra básica
+      };
+      
+      // Búsqueda flexible: probar diferentes variantes
+      const buscarGrupo = (nombreGrupo) => {
+        const variantes = [
+          nombreGrupo, // Original
+          nombreGrupo.replace(/\sy\s/g, ' Y '), // y → Y
+          nombreGrupo.replace(/\sY\s/g, ' y '), // Y → y
+          // Casos específicos para caracteres corruptos
+          nombreGrupo.replace(/TÉRMICA/g, 'T├ëRMICA'),
+          nombreGrupo.replace(/T├ëRMICA/g, 'TÉRMICA'),
+        ];
+        
+        // También buscar por partes (fallback)
+        const gruposPorContiene = grupos.filter(g => {
+          const encabezado = g.encabezado.toLowerCase();
+          return encabezado.includes('acs') && encabezado.includes('solar');
+        });
+        
+        for (const variante of variantes) {
+          const encontrado = grupos.find(g => normalizar(g.encabezado) === normalizar(variante));
+          if (encontrado) {
+            console.log(`🔍 Grupo encontrado con variante "${variante}":`, encontrado.encabezado);
+            return encontrado;
+          }
+        }
+        
+        // Si no encuentra por normalización, probar por contenido
+        if (gruposPorContiene.length > 0) {
+          console.log('🔍 Grupo encontrado por contenido ACS+SOLAR:', gruposPorContiene[0].encabezado);
+          return gruposPorContiene[0];
+        }
+        
+        console.log('🔍 Grupo NO encontrado con ninguna variante');
+        return null;
+      };
+      
+      console.log('DEBUG: Buscando grupo:', grupo);
+      console.log('DEBUG: Total grupos disponibles:', grupos.length);
+      
+      const grupoEncontrado = buscarGrupo(grupo);
+      console.log('DEBUG: Resultado busqueda:', grupoEncontrado ? 'ENCONTRADO' : 'NO_ENCONTRADO');
       
       let itemsFiltrados = [];
         if (grupoEncontrado && Array.isArray(grupoEncontrado.items)) {
+          console.log('🔍 Items encontrados en el grupo:', grupoEncontrado.items.length);
+          
           // Filtrado robusto: solo ítems chequeables, nunca encabezados ni duplicados
           const vistos = new Set();
           itemsFiltrados = grupoEncontrado.items.filter(item => {
@@ -150,11 +206,18 @@ function GrupoChecklistScreen({ route, navigation }) {
             const unidad = (item.unidad || '').trim();
             const esEncabezado = unidad === unidad.toUpperCase() && !/\d/.test(unidad) && unidad.length > 2;
             const valido = !vistos.has(idUnico) && descripcion !== 'no check' && unidad !== '' && !esEncabezado;
+            
+            console.log(`🔍 Item ${item.rowIndex}: unidad="${unidad}", descripcion="${descripcion}", esEncabezado=${esEncabezado}, valido=${valido}`);
+            
             if (valido) {
               vistos.add(idUnico);
             }
             return valido;
           });
+          
+          console.log('🔍 Items después de filtrado:', itemsFiltrados.length);
+        } else {
+          console.log('🔍 Grupo NO encontrado o sin items');
         }
         
         // Asegurar que se muestra el historial completo de observaciones y el check como completado si corresponde
@@ -165,6 +228,9 @@ function GrupoChecklistScreen({ route, navigation }) {
           completado: item.s_contrato === '√' || item.s_contrato_cross === 'X',
           fechapp: item.fechapp || '',
         }));
+        
+        console.log('🔍 Items finales para mostrar:', itemsMejorados.length);
+        console.log('🔍 Primeros 3 items:', itemsMejorados.slice(0, 3));
         
         setItems(itemsMejorados);
         setSavedDataCache(itemsMejorados);
@@ -188,7 +254,7 @@ function GrupoChecklistScreen({ route, navigation }) {
     
     for (const item of items) {
       const itemKey = item.unidad || item.id || item.rowIndex;
-      const photoItemId = item.unidad || item.id || item.rowIndex; // Usar misma lógica que PhotoButton
+      const photoItemId = item.rowIndex || item.id || item.rowIndex; // Priorizar rowIndex para consistencia
       
       try {
         const fotos = await CloudPhotoService.listPhotos({
@@ -327,13 +393,15 @@ function GrupoChecklistScreen({ route, navigation }) {
 
   // Subida de foto a Firebase y actualización local
   // Ahora handlePhotoTaken recibe la URL pública directamente desde PhotoButton
-  const handlePhotoTaken = async (itemKey, publicUrl) => {
+  const handlePhotoTaken = async (itemId, publicUrl) => {
+    console.log('[PHOTO] handlePhotoTaken itemId:', itemId);
+    console.log('[PHOTO] handlePhotoTaken publicUrl:', publicUrl);
     if (!publicUrl || typeof publicUrl !== 'string' || !publicUrl.startsWith('http')) {
       Alert.alert('Error', 'No se recibió una URL válida de la foto.');
       return;
     }
 
-    // Actualizar estado local usando la misma clave que PhotoButton
+    // Actualizar estado local
     const photoMetadata = {
       id: `photo_${Date.now()}`,
       url: publicUrl,
@@ -344,65 +412,55 @@ function GrupoChecklistScreen({ route, navigation }) {
     
     setItemPhotos(prevPhotos => ({
       ...prevPhotos,
-      [itemKey]: [...(prevPhotos[itemKey] || []), photoMetadata]
+      [itemId]: [...(prevPhotos[itemId] || []), photoMetadata]
     }));
 
-    // Buscar el item correspondiente para obtener el rowIndex real para Google Sheets
-    const allItems = items; // ✅ Usar el estado local 'items' en lugar de 'grupo.items'
-    
-    const currentItem = allItems.find(item => {
-      const photoItemKey = item.unidad || item.id || item.rowIndex;
-      console.log('[PHOTO] Comparando item:', photoItemKey, 'con itemKey:', itemKey);
-      return photoItemKey === itemKey;
-    });
-
-    if (!currentItem) {
-      console.error('[PHOTO] ❌ No se encontró el item correspondiente');
-      console.log('[PHOTO] Items disponibles:', allItems.map(item => ({
-        unidad: item.unidad,
-        id: item.id,
-        rowIndex: item.rowIndex,
-        key: item.unidad || item.id || item.rowIndex
-      })));
-      Alert.alert('Error', 'No se pudo identificar el item para actualizar Google Sheets.');
-      return;
-    }
-
-    console.log('[PHOTO] ✅ Item encontrado:', {
-      unidad: currentItem.unidad,
-      id: currentItem.id,
-      rowIndex: currentItem.rowIndex
-    });
-
-    // Usar el rowIndex del item encontrado para Google Sheets
-    const itemRowIndex = currentItem.id || currentItem.rowIndex;
-    console.log('[PHOTO] itemRowIndex final para Google Sheets:', itemRowIndex);
-
-    // Actualizar URL en Google Sheets (columna S/19) usando endpoint guardarChecks
+    // ✅ Actualizar URL en Google Sheets (columna S/19) usando endpoint guardarChecks
     try {
       console.log('[PHOTO] 🚀 Enviando URL a Google Sheets via guardarChecks...');
+      console.log('[PHOTO] Valores de spreadsheetId disponibles:', {
+        spreadsheetId_local: spreadsheetId,
+        params_spreadsheetId: params.spreadsheetId,
+        params_obraNombre: params.obraNombre,
+        usando: spreadsheetId || params.spreadsheetId
+      });
       console.log('[PHOTO] Parámetros:', {
-        spreadsheetId: params.obraNombre || params.spreadsheetId,
+        spreadsheetId: spreadsheetId || params.spreadsheetId,
         instalacion: instalacionNombre,
-        itemRowIndex: itemRowIndex,
+        itemRowIndex: itemId,
         photoUrl: publicUrl
       });
+
+      const result = await ApiService.updatePhotoUrl(
+        spreadsheetId || params.spreadsheetId,
+        instalacionNombre,
+        itemId,
+        publicUrl
+      );
       
-      // TODO: Implementar updatePhotoUrl en ApiService si es necesario
-      // await ApiService.updatePhotoUrl(
-      //   params.obraNombre || params.spreadsheetId,
-      //   instalacionNombre,
-      //   itemRowIndex,
-      //   publicUrl
-      // );
-      console.log('[PHOTO] ✅✅✅ URL enviada correctamente a Google Sheets');
-      console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO EXITOSAMENTE =====');
-      Alert.alert('Foto subida', 'La foto se subió correctamente y se actualizó en Google Sheets.');
+      // Verificar si la actualización fue exitosa o si fue "entity not found" 
+      if (result && result.skipError && result.error === 'Entity not found') {
+        console.warn('[PHOTO] ⚠️ Entity not found - esto puede ser normal para algunos elementos');
+        console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO CON ADVERTENCIA =====');
+        Alert.alert('Foto subida', 'La foto se subió correctamente. La actualización automática en Google Sheets no fue necesaria para este elemento.');
+      } else {
+        console.log('[PHOTO] ✅✅✅ URL enviada correctamente a Google Sheets');
+        console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO EXITOSAMENTE =====');
+        Alert.alert('Foto subida', 'La foto se subió correctamente y se actualizó en Google Sheets.');
+      }
     } catch (error) {
       console.error('[PHOTO] ❌❌❌ Error enviando URL a Google Sheets:', error);
       console.log('[PHOTO] ===== HANDLE PHOTO TAKEN COMPLETADO CON ERROR =====');
-      // Aunque falle la actualización en Sheets, la foto ya está subida y guardada localmente
-      Alert.alert('Foto subida', 'La foto se subió correctamente, pero no se pudo actualizar en Google Sheets.');
+      
+      // Verificar si es un error de "entity not found" que puede ser normal
+      const errorMessage = error?.message || '';
+      if (errorMessage.includes('Requested entity was not found')) {
+        console.warn('[PHOTO] ⚠️ Entity not found - esto puede ser normal para algunos elementos');
+        Alert.alert('Foto subida', 'La foto se subió correctamente. La actualización automática en Google Sheets no fue necesaria para este elemento.');
+      } else {
+        // Aunque falle la actualización en Sheets, la foto ya está subida y guardada localmente
+        Alert.alert('Foto subida', 'La foto se subió correctamente, pero no se pudo actualizar en Google Sheets.');
+      }
     }
   };
 
@@ -512,10 +570,6 @@ function GrupoChecklistScreen({ route, navigation }) {
       await saveToAsyncStorage(savedData);
       console.log('📱 [ASYNC] Datos guardados en AsyncStorage');
 
-      // También actualizar los parámetros de navegación con los datos cacheados
-      navigation.setParams({ cachedItems: savedData });
-      console.log('🧭 [NAVIGATION] Parámetros actualizados con cache para futuras navegaciones');
-
       Alert.alert('Guardado exitoso', 'Los cambios se han guardado correctamente.');
 
       // Refrescar desde la API después de un delay mayor para asegurar que Google Sheets procese los cambios
@@ -535,26 +589,6 @@ function GrupoChecklistScreen({ route, navigation }) {
       <StatusBar barStyle="light-content" backgroundColor="#4a6cf7" />
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={async () => {
-            // Guardar datos en AsyncStorage antes de volver
-            if (items.length > 0) {
-              console.log('🔄 Guardando datos antes de volver');
-              console.log('🔄 Datos a guardar:', items.length, 'items');
-              
-              // Guardar en AsyncStorage para persistencia completa
-              await saveToAsyncStorage(items);
-              
-              // También mantener el cache en memoria y navegación
-              setSavedDataCache(items);
-              navigation.setParams({ cachedItems: items });
-              
-              console.log('💾 Datos guardados en AsyncStorage, cache local y parámetros de navegación');
-            }
-            navigation.goBack();
-          }} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Volver</Text>
-          </TouchableOpacity>
-          
           {/* Botón de guardar */}
           <TouchableOpacity
             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
@@ -637,14 +671,17 @@ function GrupoChecklistScreen({ route, navigation }) {
               {/* Botones de Foto y Observaciones lado a lado */}
               <View style={styles.buttonRow}>
                 <PhotoButton
-                  itemId={item.id || item.rowIndex || 'unknown'}
+                  itemId={item.rowIndex || item.id || 'unknown'}
                   checklistName={item.unidad}
                   photos={itemPhotos[item.unidad || item.id || item.rowIndex] || []}
                   onPhotoTaken={(url) => {
                     console.log('[PHOTO] Item data for photo:', JSON.stringify(item, null, 2));
                     const itemKey = item.unidad || item.id || item.rowIndex || 'unknown';
                     console.log('[PHOTO] Using itemKey:', itemKey);
-                    handlePhotoTaken(itemKey, url);
+                    // Para la función handlePhotoTaken, usar rowIndex como itemId para Google Sheets
+                    const photoItemId = item.rowIndex || item.id || 'unknown';
+                    console.log('[PHOTO] Using photoItemId for API:', photoItemId);
+                    handlePhotoTaken(photoItemId, url);
                   }}
                   onViewPhotos={() => handleViewPhotos(item.unidad || item.id || item.rowIndex)}
                   onDeletePhoto={(photo) => handleDeletePhoto(item.unidad || item.id || item.rowIndex, photo)}

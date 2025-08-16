@@ -47,7 +47,9 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
   const [instalaciones, setInstalaciones] = useState<Instalacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [realSpreadsheetId, setRealSpreadsheetId] = useState<string | null>(null);  const handleGoBack = () => {
+  const [realSpreadsheetId, setRealSpreadsheetId] = useState<string | null>(null);
+  
+  const handleGoBack = () => {
     // Volver a ObrasScreen con los parámetros correctos
     navigation.navigate('Obras', { 
       jefeId: jefeNombre,
@@ -236,9 +238,6 @@ const InstalacionesScreen = ({ navigation, route }: Props) => {
       <StatusBar barStyle="light-content" backgroundColor="#4a6cf7" />
       
       <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <Text style={styles.backButtonText}>← Volver</Text>
-        </TouchableOpacity>
         <Text style={styles.welcomeText}>Obra: {safeText(obraNombre)}</Text>
         <Text style={styles.title}>⚡ Instalaciones</Text>
         <Text style={styles.subtitle}>Selecciona una instalación para continuar</Text>

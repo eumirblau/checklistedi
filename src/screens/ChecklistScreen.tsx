@@ -175,9 +175,6 @@ const ChecklistScreen = ({ navigation, route }: Props) => {
       {/* Aquí NO debe haber galería de fotos, solo navegación a GrupoChecklistScreen */}
       <StatusBar barStyle="light-content" backgroundColor="#4a6cf7" />
       <View style={styles.headerContainer}>
-        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <Text style={styles.backButtonText}>← Volver</Text>
-        </TouchableOpacity>
         <Text style={styles.welcomeText}>Instalación: {instalacionNombre}</Text>
         <Text style={styles.title}>📋 Checklist</Text>
         <Text style={styles.subtitle}>
