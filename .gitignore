@@ -51,8 +51,8 @@ config/secrets.js
 config/firebase-key.json
 config/service-account.json
 firebase-adminsdk-*.json
-# Permitir google-services.json en android/app/ pero ignorar en raíz
-/google-services.json
+# Permitir google-services.json en android/app/ y en raíz para EAS Build
+# /google-services.json  # Comentado para permitir el archivo en git
 GoogleService-Info.plist
 
 # Claves y certificados

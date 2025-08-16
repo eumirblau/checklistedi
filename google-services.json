@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "972633539581",
+    "project_id": "checklistedhinor",
+    "storage_bucket": "checklistedhinor.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:972633539581:android:1971e7f9cd4930c807cf94",
+        "android_client_info": {
+          "package_name": "com.eumirblau.checklistapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDREB_RGYvMCeNHL7t3CWfLo7402dsOOiE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
