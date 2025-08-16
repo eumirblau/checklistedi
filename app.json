@@ -30,7 +30,12 @@
       },
       "package": "com.eumirblau.checklistapp",
       "googleServicesFile": "./google-services.json",
-      "jsEngine": "hermes"
+      "jsEngine": "hermes",
+      "permissions": [
+        "RECORD_AUDIO",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
     },
     "updates": {
       "fallbackToCacheTimeout": 0
