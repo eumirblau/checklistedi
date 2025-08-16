@@ -32,19 +32,21 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const [showSimulationModal, setShowSimulationModal] = useState(false);
   const [simulationText, setSimulationText] = useState('');
+  const [voiceNativeUnavailable, setVoiceNativeUnavailable] = useState(false);
   
-  // Para desarrollo/simuladores: siempre usar el modal de texto
-  const isDevelopment = __DEV__ || !Voice;
+  // Solo usar modal de texto en emuladores/simuladores o si Voice no está disponible
+  const isEmulator = !Voice || voiceNativeUnavailable;
 
   useEffect(() => {
-    if (isDevelopment) {
-      // En desarrollo, marcar como inicializado sin verificar Voice
+    // Siempre intentar configurar Voice, tanto en desarrollo como en producción
+    if (isEmulator) {
+      // Si Voice no está disponible, marcar como inicializado para usar modal
       setIsInitialized(true);
-      console.log('🧪 VoiceButton en modo desarrollo - usando modal de texto');
+      console.log('🧪 VoiceButton: Voice no disponible - usando modal de texto');
       return;
     }
 
-    // Solo en producción: configurar eventos de Voice
+    // Configurar eventos de Voice (desarrollo Y producción)
     Voice.onSpeechStart = onSpeechStart;
     Voice.onSpeechRecognized = onSpeechRecognized;
     Voice.onSpeechEnd = onSpeechEnd;
@@ -79,35 +81,41 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
           setIsInitialized(false);
           return;
         }
+        
+        // Test rápido para verificar si Voice nativo está disponible
+        try {
+          await Voice.stop(); // Test básico
+          console.log('🎤 Permisos concedidos - Voice nativo verificado');
+          setIsInitialized(true);
+        } catch (testError) {
+          const errorString = testError?.toString() || '';
+          if (errorString.includes('startSpeech') || errorString.includes('stopSpeech') || errorString.includes('null')) {
+            console.warn('🚫 Voice nativo no disponible - usando modal de texto');
+            setVoiceNativeUnavailable(true);
+            setIsInitialized(true); // Para usar modal
+          } else {
+            console.log('🎤 Permisos concedidos - asumiendo Voice disponible');
+            setIsInitialized(true);
+          }
+        }
+        return;
       }
 
-      // Verificar diferentes métodos de disponibilidad
-      let available = false;
-      
+      // Para iOS, intentar verificación normal
       try {
         const isAvailableResult = await Voice.isAvailable();
-        available = !!isAvailableResult; // Convertir número/cualquier valor a boolean
-      } catch (e) {
-        console.log('isAvailable() failed, trying alternative check');
-        // Método alternativo: intentar obtener la lista de idiomas
-        try {
-          const engines = await Voice.getSpeechRecognitionServices();
-          available = engines && engines.length > 0;
-        } catch (e2) {
-          console.log('getSpeechRecognitionServices() also failed');
-          available = false;
-        }
+        const available = !!isAvailableResult;
+        setIsInitialized(available);
+        console.log('Voice availability check result:', available);
+      } catch (error) {
+        console.log('Voice verification failed, but trying anyway');
+        setIsInitialized(true); // Intentar de todas formas
       }
-
-      setIsInitialized(available);
-      console.log('Voice availability check result:', available);
       
-      if (!available) {
-        console.warn('Voice recognition not available on this device');
-      }
     } catch (error) {
       console.error('Error checking voice availability:', error);
-      setIsInitialized(false);
+      // En caso de error, intentar de todas formas
+      setIsInitialized(true);
     }
   };
 
@@ -197,45 +205,45 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
       return;
     }
 
-    // Verificar permisos en tiempo real para Android
-    if (Platform.OS === 'android') {
-      const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
-      if (!hasPermission) {
-        const granted = await requestMicrophonePermission();
-        if (!granted) {
-          return;
+    try {
+      // Verificar permisos en tiempo real para Android
+      if (Platform.OS === 'android') {
+        const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+        if (!hasPermission) {
+          const granted = await requestMicrophonePermission();
+          if (!granted) {
+            return;
+          }
         }
       }
-    }
 
-    if (!isInitialized) {
-      console.log('Voice not initialized, trying to reinitialize...');
-      await checkVoiceAvailability();
-      if (!isInitialized) {
-        Alert.alert(
-          'Reconocimiento de voz no disponible',
-          'No se pudo inicializar el reconocimiento de voz. ¿Te gustaría escribir tu observación manualmente?',
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            { 
-              text: 'Escribir observación', 
-              style: 'default',
-              onPress: () => showVoiceSimulation()
-            }
-          ]
-        );
-        return;
-      }
-    }
-
-    try {
       // Asegurarse de que el reconocimiento anterior esté detenido
       await Voice.stop();
       await Voice.cancel();
       
       setIsListening(true);
-      console.log('🎤 Iniciando reconocimiento de voz en español...');
-      await Voice.start('es-ES'); // Español de España
+      console.log('🎤 FORZANDO inicio de reconocimiento de voz en español...');
+      
+      // Intentar múltiples variantes de idioma español
+      const spanishVariants = ['es-ES', 'es-MX', 'es-AR', 'es'];
+      let started = false;
+      
+      for (const locale of spanishVariants) {
+        try {
+          await Voice.start(locale);
+          console.log(`🎤 Reconocimiento iniciado con idioma: ${locale}`);
+          started = true;
+          break;
+        } catch (localeError) {
+          console.warn(`Idioma ${locale} falló, probando siguiente...`);
+        }
+      }
+      
+      if (!started) {
+        // Último intento con idioma por defecto
+        await Voice.start('es');
+        console.log('🎤 Reconocimiento iniciado con idioma por defecto: es');
+      }
       
       // Timeout de seguridad - detener después de 10 segundos
       setTimeout(() => {
@@ -249,17 +257,30 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
       console.error('Error starting voice recognition:', error);
       setIsListening(false);
       
-      // Mensaje más específico según el error
-      let errorMessage = 'No se pudo iniciar el reconocimiento de voz';
-      if (error instanceof Error) {
-        if (error.message.includes('permission')) {
-          errorMessage = 'Sin permisos de micrófono. Verifica los permisos de la aplicación.';
-        } else if (error.message.includes('network')) {
-          errorMessage = 'Sin conexión a internet. El reconocimiento de voz requiere conexión.';
-        }
+      // Detectar errores específicos de Voice nativo no disponible
+      const errorString = error?.toString() || '';
+      if (errorString.includes('startSpeech') || errorString.includes('stopSpeech') || errorString.includes('null')) {
+        console.warn('🚫 Voice nativo no disponible - cambiando a modal de texto permanentemente');
+        setVoiceNativeUnavailable(true);
+        setIsInitialized(true); // Para usar modal
+        // Abrir directamente el modal sin mostrar error
+        showVoiceSimulation();
+        return;
       }
       
-      Alert.alert('Error', errorMessage);
+      // Para otros errores, mostrar opción
+      Alert.alert(
+        'Reconocimiento de voz no disponible',
+        'No se pudo iniciar el reconocimiento de voz en este momento. ¿Te gustaría escribir tu observación manualmente?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Escribir observación', 
+            style: 'default',
+            onPress: () => showVoiceSimulation()
+          }
+        ]
+      );
     }
   };
 
@@ -271,16 +292,23 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
     } catch (error) {
       console.error('Error stopping voice recognition:', error);
       setIsListening(false);
+      
+      // Detectar errores de Voice nativo no disponible
+      const errorString = error?.toString() || '';
+      if (errorString.includes('startSpeech') || errorString.includes('stopSpeech') || errorString.includes('null')) {
+        console.warn('🚫 Voice nativo no disponible detectado en stop');
+        setVoiceNativeUnavailable(true);
+      }
     }
   };
 
   const handlePress = () => {
-    // CAMBIO: Siempre verificar si el reconocimiento de voz está disponible
-    if (isDevelopment || !isInitialized) {
-      // En desarrollo O si la voz no está disponible, usar modal de simulación
+    // CAMBIO: Verificar si el reconocimiento de voz está disponible
+    if (isEmulator || !isInitialized) {
+      // Si Voice no está disponible o no se inicializó, usar modal de simulación
       showVoiceSimulation();
     } else {
-      // En producción Y con voz disponible, usar reconocimiento de voz real
+      // Si Voice está disponible, usar reconocimiento de voz real
       if (isListening) {
         stopListening();
       } else {
@@ -343,8 +371,8 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
     setSimulationText('');
   };
 
-  // En desarrollo, siempre mostrar botón activo
-  if (isDevelopment) {
+  // Si Voice no está disponible, mostrar botón para modal de texto
+  if (isEmulator) {
     return (
       <>
         <TouchableOpacity
@@ -414,8 +442,8 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
   }
 
   // CAMBIO: Siempre mostrar el botón como disponible con fallback a texto
-  // En lugar de verificar isInitialized, siempre permitir interacción
-  const isVoiceAvailable = isInitialized && !isDevelopment;
+  // En lugar de verificar desarrollo, verificar si Voice está realmente disponible
+  const isVoiceAvailable = isInitialized && !isEmulator;
   const buttonText = isVoiceAvailable ? 'Voz' : 'Obs';
   const buttonIcon = isVoiceAvailable ? '🎤' : '✏️';
 
