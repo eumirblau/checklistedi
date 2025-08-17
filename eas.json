@@ -11,6 +11,18 @@
     "preview": {
       "distribution": "internal"
     },
+    "apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      },
+      "cache": {
+        "disabled": false
+      }
+    },
     "production": {
       "autoIncrement": true,
       "android": {
