@@ -98,6 +98,12 @@ src/global.d.ts
 **/*.backup
 logcat_*.txt
 *.log
+*.apk
+*.ipa
+types/
+src/config/firebase.ts
+src/config/firebaseInit.ts
+components/Collapsible.tsx
 
 # Ignorar archivos fantasma de TypeScript
 **/*AuthServiceWeb*
