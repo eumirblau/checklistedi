@@ -101,7 +101,9 @@ logcat*.txt
 *.log
 *.apk
 *.ipa
-types/
+# Sólo ignorar la carpeta de tipos en la raíz, no src/types
+/types/
+!src/types/**
 src/config/firebase.ts
 src/config/firebaseInit.ts
 components/Collapsible.tsx
