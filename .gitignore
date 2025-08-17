@@ -97,6 +97,7 @@ src/services/AuthServiceNative.ts
 src/global.d.ts
 **/*.backup
 logcat_*.txt
+logcat*.txt
 *.log
 *.apk
 *.ipa
