@@ -48,7 +48,8 @@
     },
     "plugins": [
       "./plugins/withCustomAndroidManifest",
-      "@react-native-firebase/app"
+      "@react-native-firebase/app",
+      "@react-native-voice/voice"
     ]
   }
 }

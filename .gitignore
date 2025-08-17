@@ -91,6 +91,13 @@ src/services/AuthServiceWebSimple.ts
 src/utils/NavigationUtils.ts
 services/ApiService.ts
 debug.js
+src/App.tsx
+src/components/VoiceButtonSimple.tsx
+src/services/AuthServiceNative.ts
+src/global.d.ts
+**/*.backup
+logcat_*.txt
+*.log
 
 # Ignorar archivos fantasma de TypeScript
 **/*AuthServiceWeb*
