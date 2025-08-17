@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Linking,
     Modal,
     PermissionsAndroid,
     Platform,
@@ -45,6 +46,7 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
     Voice.onSpeechEnd = onSpeechEnd;
     Voice.onSpeechError = onSpeechError;
     Voice.onSpeechResults = onSpeechResults;
+  Voice.onSpeechPartialResults = onSpeechPartialResults;
 
     console.log('🎤 VoiceButton inicializado');
 
@@ -71,11 +73,11 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
   };
 
   const onSpeechError = (e: SpeechErrorEvent) => {
-    console.error('❌ Error de reconocimiento de voz:', e.error);
+  console.error('❌ Error de reconocimiento de voz:', e?.error);
     setIsListening(false);
     
     let errorMessage = 'Error en el reconocimiento de voz';
-    switch (e.error?.code) {
+  switch (e?.error?.code) {
       case '2':
         errorMessage = 'Red no disponible';
         break;
@@ -86,7 +88,7 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
         errorMessage = 'Sin permisos de micrófono';
         break;
       default:
-        errorMessage = `Error: ${e.error?.message || 'Desconocido'}`;
+    errorMessage = `Error: ${e?.error?.message || 'Desconocido'}`;
     }
     
     Alert.alert('Error de Voz', errorMessage);
@@ -101,6 +103,82 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
     setIsListening(false);
   };
 
+  const onSpeechPartialResults = (e: any) => {
+    console.log('📝 Parciales:', e?.value);
+    // Optional UI handling
+  };
+
+  const resetVoiceSession = async () => {
+    try {
+      if (!Voice) return;
+      if (typeof Voice.stop === 'function') {
+        await Voice.stop();
+      }
+      if (typeof (Voice as any).cancel === 'function') {
+        await (Voice as any).cancel();
+      }
+      if (typeof Voice.destroy === 'function') {
+        await Voice.destroy();
+      }
+      if (typeof Voice.removeAllListeners === 'function') {
+        Voice.removeAllListeners();
+      }
+    } catch (e) {
+      console.warn('Error reseteando sesión de voz', e);
+    } finally {
+      // Re-registrar listeners tras reset
+      Voice.onSpeechStart = onSpeechStart;
+      Voice.onSpeechRecognized = onSpeechRecognized;
+      Voice.onSpeechEnd = onSpeechEnd;
+      Voice.onSpeechError = onSpeechError;
+      Voice.onSpeechResults = onSpeechResults;
+      Voice.onSpeechPartialResults = onSpeechPartialResults;
+    }
+  };
+
+  const requestMicPermission = async (): Promise<boolean> => {
+    if (Platform.OS !== 'android') return true;
+    try {
+      const hasPermission = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+      );
+      if (hasPermission) return true;
+
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: 'Permiso de micrófono',
+          message:
+            'ChecklistApp necesita usar el micrófono para transcribir tu voz en observaciones.',
+          buttonPositive: 'Permitir',
+          buttonNegative: 'Cancelar',
+        }
+      );
+
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) return true;
+
+      if (granted === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+        Alert.alert(
+          'Permiso de micrófono bloqueado',
+          'Para usar la voz, activa el permiso de micrófono en Ajustes > Apps > ChecklistApp > Permisos.',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Abrir Ajustes',
+              onPress: () => Linking.openSettings(),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Permiso requerido', 'No se concedió el permiso de micrófono.');
+      }
+      return false;
+    } catch (e) {
+      console.warn('Error comprobando/solicitando permiso de micrófono', e);
+      return false;
+    }
+  };
+
   const startListening = async () => {
     if (disabled) {
       console.log('Voice button is disabled');
@@ -108,43 +186,71 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
     }
 
     try {
-      // Android: verificar/solicitar permiso de micrófono antes de iniciar
-      if (Platform.OS === 'android') {
-        const hasPermission = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
-        );
-        if (!hasPermission) {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-            {
-              title: 'Permiso de micrófono',
-              message:
-                'ChecklistApp necesita usar el micrófono para transcribir tu voz en observaciones.',
-              buttonPositive: 'Permitir',
-              buttonNegative: 'Cancelar',
-            }
-          );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            console.warn('Permiso de micrófono no concedido');
+      // Verificar disponibilidad del servicio de voz si la API existe
+      if (Voice && typeof (Voice as any).isAvailable === 'function') {
+        try {
+          const available = await (Voice as any).isAvailable();
+          if (!available) {
+            Alert.alert(
+              'Reconocimiento no disponible',
+              'No hay servicio de reconocimiento de voz disponible en este dispositivo. Asegúrate de tener "Speech Services by Google" o la app de Google actualizada y activa.'
+            );
             return;
           }
+        } catch (e) {
+          console.warn('No se pudo verificar disponibilidad de voz', e);
         }
       }
-      setIsListening(true);
-      console.log('🎤 Iniciando reconocimiento de voz...');
+
+      // Android: verificar/solicitar permiso con manejo de never_ask_again
+      const permissionOk = await requestMicPermission();
+      if (!permissionOk) return;
+      console.log('🎤 Preparando reconocimiento de voz...');
       
       // Verificar si Voice y sus métodos están disponibles
-      console.log('Voice object:', Voice);
-      console.log('Voice.start:', Voice?.start);
-      console.log('Voice methods available:', Object.keys(Voice || {}));
-      
-      // Intentar diferentes métodos de inicio
-      if (Voice && typeof Voice.start === 'function') {
-        await Voice.start('es-ES');
-        console.log('🎤 Reconocimiento iniciado con Voice.start');
-      } else {
+      if (!Voice || typeof Voice.start !== 'function') {
         console.error('Voice.start no está disponible');
         setIsListening(false);
+        return;
+      }
+      // Intentar con varios locales de español por compatibilidad
+      const locales = ['es-ES', 'es-MX', 'es-AR', 'es-419'];
+      const startOptions: any = {
+        EXTRA_LANGUAGE_MODEL: 'LANGUAGE_MODEL_FREE_FORM',
+        EXTRA_PARTIAL_RESULTS: true,
+        EXTRA_MAX_RESULTS: 3,
+        EXTRA_PREFER_OFFLINE: false,
+        // Algunos dispositivos aceptan definir el engine como 'google'
+        RECOGNIZER_ENGINE: 'google',
+      };
+      let started = false;
+      let lastError: any = null;
+      for (const locale of locales) {
+        try {
+          await resetVoiceSession();
+          setIsListening(true);
+          console.log(`🎤 Intentando iniciar reconocimiento con locale ${locale}...`);
+          // pequeña espera para asegurar estado del audio tras permisos/reset
+          await new Promise(res => setTimeout(res, 150));
+          await Voice.start(locale, startOptions);
+          console.log(`🎤 Reconocimiento iniciado con ${locale}`);
+          started = true;
+          break;
+        } catch (err) {
+          console.warn(`Fallo iniciando con ${locale}:`, err);
+          lastError = err;
+          setIsListening(false);
+          // Reintentar rápidamente con el siguiente locale
+        }
+      }
+
+      if (!started) {
+        console.error('No se pudo iniciar el reconocimiento con ninguno de los locales', lastError);
+        Alert.alert(
+          'No se pudo iniciar',
+          'No se pudo iniciar el reconocimiento de voz. Verifica que el micrófono funciona y que el servicio de voz de Google esté instalado/actualizado.'
+        );
+        return;
       }
       
     } catch (error) {
@@ -156,7 +262,9 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
   const stopListening = async () => {
     try {
       console.log('⏹️ Deteniendo reconocimiento de voz...');
-      await Voice.stop();
+      if (Voice && typeof Voice.stop === 'function') {
+        await Voice.stop();
+      }
       setIsListening(false);
     } catch (error) {
       console.error('Error stopping voice recognition:', error);
