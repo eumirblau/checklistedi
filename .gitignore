@@ -105,6 +105,7 @@ types/
 src/config/firebase.ts
 src/config/firebaseInit.ts
 components/Collapsible.tsx
+build-export/
 
 # Ignorar archivos fantasma de TypeScript
 **/*AuthServiceWeb*
