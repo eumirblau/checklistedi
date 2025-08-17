@@ -232,15 +232,30 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
           console.log(`🎤 Intentando iniciar reconocimiento con locale ${locale}...`);
           // pequeña espera para asegurar estado del audio tras permisos/reset
           await new Promise(res => setTimeout(res, 150));
+          // Intento 1: con opciones
           await Voice.start(locale, startOptions);
           console.log(`🎤 Reconocimiento iniciado con ${locale}`);
           started = true;
           break;
         } catch (err) {
-          console.warn(`Fallo iniciando con ${locale}:`, err);
+          console.warn(`Fallo iniciando con ${locale} (con opciones):`, err);
           lastError = err;
           setIsListening(false);
-          // Reintentar rápidamente con el siguiente locale
+          // Intento 2: sin opciones (algunos dispositivos fallan con extras)
+          try {
+            await resetVoiceSession();
+            setIsListening(true);
+            await new Promise(res => setTimeout(res, 150));
+            await Voice.start(locale);
+            console.log(`🎤 Reconocimiento iniciado con ${locale} sin opciones`);
+            started = true;
+            break;
+          } catch (err2) {
+            console.warn(`Fallo iniciando con ${locale} (sin opciones):`, err2);
+            lastError = err2;
+            setIsListening(false);
+            // probar siguiente locale
+          }
         }
       }
 
@@ -248,7 +263,7 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
         console.error('No se pudo iniciar el reconocimiento con ninguno de los locales', lastError);
         Alert.alert(
           'No se pudo iniciar',
-          'No se pudo iniciar el reconocimiento de voz. Verifica que el micrófono funciona y que el servicio de voz de Google esté instalado/actualizado.'
+          `No se pudo iniciar el reconocimiento de voz.\n\nDetalle: ${lastError?.message || lastError?.toString?.() || 'sin detalle'}`
         );
         return;
       }
