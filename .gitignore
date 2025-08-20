@@ -91,23 +91,6 @@ src/services/AuthServiceWebSimple.ts
 src/utils/NavigationUtils.ts
 services/ApiService.ts
 debug.js
-src/App.tsx
-src/components/VoiceButtonSimple.tsx
-src/services/AuthServiceNative.ts
-src/global.d.ts
-**/*.backup
-logcat_*.txt
-logcat*.txt
-*.log
-*.apk
-*.ipa
-# Sólo ignorar la carpeta de tipos en la raíz, no src/types
-/types/
-!src/types/**
-src/config/firebase.ts
-src/config/firebaseInit.ts
-components/Collapsible.tsx
-build-export/
 
 # Ignorar archivos fantasma de TypeScript
 **/*AuthServiceWeb*
@@ -115,3 +98,7 @@ build-export/
 
 # AuthServiceNative se usa solo en builds EAS
 # src/services/AuthServiceNative.ts
+
+# Scripts locales no usados (limpieza)
+scripts/*.ps1
+scripts/*.txt

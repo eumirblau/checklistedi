@@ -1,3 +1,2 @@
-// Bridge file to support `import '../types'` in Metro/EAS bundler
-// Re-export all types from the folder-based index
+// Puente para que las importaciones "../types" funcionen en todo src
 export * from './types/index';

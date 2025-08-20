@@ -12,9 +12,3 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 
 # Add any project specific keep options here:
-
-# Keep react-native-voice native module to avoid being stripped in release
--keep class com.wenkesj.voice.** { *; }
--keep class com.wenkesj.voice.BuildConfig { *; }
--keep class com.reactnativevoice.** { *; }
--keep class com.reactnativevoice.BuildConfig { *; }

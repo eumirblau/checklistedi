@@ -47,19 +47,16 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [photoToRename, setPhotoToRename] = useState<PhotoMetadata | null>(null);
   const [newFileName, setNewFileName] = useState('');
-  const [renaming, setRenaming] = useState(false);
 
   // El modal solo se actualiza cuando el usuario lo solicita explícitamente
 
   const handleRenamePhoto = async () => {
-    if (renaming) return;
     if (!photoToRename || !newFileName.trim()) {
       Alert.alert('Error', 'Por favor ingresa un nombre válido');
       return;
     }
 
     try {
-      setRenaming(true);
       console.log('🔄 Renombrando foto:', photoToRename.fileName, 'a:', newFileName);
       console.log('📂 Parámetros:', {
         jefeGrupo,
@@ -85,7 +82,7 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
           newFileName: finalFileName
         });
         
-  if (success) {
+        if (success) {
           // Actualizar la foto en la lista local
           const updatedPhotos = modalPhotos.map(photo => 
             photo.id === photoToRename.id 
@@ -103,22 +100,18 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
           setRenameModalVisible(false);
           setPhotoToRename(null);
           setNewFileName('');
-          setRenaming(false);
           console.log('✅ Foto renombrada correctamente');
         } else {
           Alert.alert('Error', 'No se pudo renombrar la foto. Respuesta inesperada del servidor.');
           console.error('❌ Error renombrando foto: función retornó false');
-          setRenaming(false);
         }
       } catch (serviceError) {
         console.error('❌ Error del servicio:', serviceError);
         Alert.alert('Error', `No se pudo renombrar la foto: ${serviceError.message || serviceError}`);
-        setRenaming(false);
       }
     } catch (error) {
       console.error('❌ Error al renombrar foto:', error);
       Alert.alert('Error', `Ocurrió un error al renombrar la foto: ${error.message || error}`);
-      setRenaming(false);
     }
   };
 
@@ -484,10 +477,9 @@ const PhotoButton: React.FC<PhotoButtonProps> = ({
                   marginLeft: 10
                 }}
                 onPress={handleRenamePhoto}
-                disabled={renaming}
               >
                 <Text style={{ color: '#fff', textAlign: 'center', fontWeight: '600' }}>
-                  {renaming ? 'Renombrando…' : 'Renombrar'}
+                  Renombrar
                 </Text>
               </TouchableOpacity>
             </View>

@@ -383,8 +383,8 @@ exports.renamePhoto = functions.https.onRequest(async (req, res) => {
     console.log(`📄 Archivo original: ${oldFilePath}`);
     console.log(`📝 Nuevo nombre: ${newFileName}`);
     
-  const bucket = admin.storage().bucket();
-  const oldFile = bucket.file(oldFilePath);
+    const bucket = admin.storage().bucket();
+    const oldFile = bucket.file(oldFilePath);
     
     // Verificar que el archivo existe
     const [exists] = await oldFile.exists();
@@ -400,28 +400,14 @@ exports.renamePhoto = functions.https.onRequest(async (req, res) => {
     
     console.log(`📂 Nuevo path: ${newFilePath}`);
     
-    // Copiar archivo al nuevo nombre (idempotente si ya existe)
+    // Copiar archivo al nuevo nombre
     const newFile = bucket.file(newFilePath);
-    const [newExists] = await newFile.exists();
-    if (!newExists) {
-      await oldFile.copy(newFile);
-      console.log(`✅ Archivo copiado exitosamente`);
-    } else {
-      console.log(`ℹ️ El archivo destino ya existe, se omite la copia`);
-    }
+    await oldFile.copy(newFile);
+    console.log(`✅ Archivo copiado exitosamente`);
     
-    // Eliminar archivo original (tolerar 404 si ya fue eliminado por otro intento)
-    try {
-      await oldFile.delete();
-      console.log(`🗑️ Archivo original eliminado`);
-    } catch (delErr) {
-      const msg = (delErr && delErr.message) || '';
-      if (msg.includes('No such object') || msg.includes('The specified key does not exist')) {
-        console.log(`⚠️ Archivo original ya no existe, se continúa igualmente`);
-      } else {
-        throw delErr;
-      }
-    }
+    // Eliminar archivo original
+    await oldFile.delete();
+    console.log(`🗑️ Archivo original eliminado`);
     
     res.json({
       success: true,
