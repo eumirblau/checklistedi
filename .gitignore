@@ -102,3 +102,6 @@ debug.js
 # Scripts locales no usados (limpieza)
 scripts/*.ps1
 scripts/*.txt
+
+# Expo export artifacts
+build-export/
